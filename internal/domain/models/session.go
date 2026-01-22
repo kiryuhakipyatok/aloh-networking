@@ -1,6 +1,8 @@
 package models
 
 import (
+	"sync"
+
 	"github.com/pion/ice/v2"
 	"github.com/quic-go/quic-go"
 )
@@ -12,4 +14,5 @@ type Session struct {
 	IsInitiator bool
 	State       string
 	CredsChan   chan struct{}
+	Closing     sync.Once
 }

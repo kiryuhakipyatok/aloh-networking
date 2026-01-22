@@ -1,0 +1,27 @@
+app:
+  name: "aloh-networking"
+  version: "1.0.0"
+  env: "local"
+  receiveSDPSize: 100
+  sendSDPSize: 100
+
+signaling:
+  address: "${SIGNALING_ADDRESS}"
+  port: "${SIGNALING_PORT}"
+  handshakeTimeout: 10s
+  idleTimeout: 10m
+  keepAlivePeriodTimeout: 10s
+  closeTimeout: 10s
+  startTimeout: 10s
+  certsPath: "../etc/certs"
+  nextProtos: ["aloh-proto"]
+  maxIncomingStreams: 100
+
+networking:
+  nextProtos: ["aloh-networking"]
+  stunHost: "${STUN_HOST}"
+  stunPort: "${STUN_PORT}"
+  turnHost: "${TURN_HOST}"
+  turnPort: "${TURN_PORT}"
+  turnUsername: "${TURN_USERNAME}"
+  turnPassword: "${TURN_PASSWORD}"

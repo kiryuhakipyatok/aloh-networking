@@ -13,6 +13,7 @@ type SessionRepository interface {
 	Delete(ctx context.Context, id string) error
 	Fetch(ctx context.Context) ([]*models.Session, error)
 	Get(ctx context.Context, id string) (*models.Session, error)
+	Clear(ctx context.Context) error
 }
 
 type sessionRepository struct {
@@ -68,7 +69,7 @@ func (ag *sessionRepository) Get(ctx context.Context, id string) (*models.Sessio
 }
 
 func (ag *sessionRepository) Fetch(ctx context.Context) ([]*models.Session, error) {
-	op := "sessionRepository.GetAll"
+	op := "sessionRepository.Fetch"
 	sessions := []*models.Session{}
 	select {
 	case <-ctx.Done():
@@ -84,4 +85,20 @@ func (ag *sessionRepository) Fetch(ctx context.Context) ([]*models.Session, erro
 		})
 	}
 	return sessions, nil
+}
+
+func (ag *sessionRepository) Clear(ctx context.Context) error {
+	op := "sessionRepository.Clear"
+	select {
+	case <-ctx.Done():
+		return errs.ErrRequestTimeout(op)
+	default:
+		ag.Range(func(key, value any) bool {
+			if _, ok := ag.LoadAndDelete(key); !ok {
+				return false
+			}
+			return true
+		})
+	}
+	return nil
 }

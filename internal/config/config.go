@@ -5,18 +5,46 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	App App `mapstructure:"app"`
+	App        App        `mapstructure:"app"`
+	Signaling  Signaling  `mapstructure:"signaling"`
+	Networking Networking `mapstructure:"networking"`
 }
 
 type App struct {
-	Name    string `mapstructure:"name"`
-	Version string `mapstructure:"version"`
-	Env     string `mapstructure:"env"`
+	Name           string `mapstructure:"name"`
+	Version        string `mapstructure:"version"`
+	Env            string `mapstructure:"env"`
+	ReceiveSDPSize int    `mapstructure:"receiveSDPSize"`
+	SendSDPSize    int    `mapstructure:"sendSDPSize"`
+}
+
+type Signaling struct {
+	Address                string        `mapstructure:"address"`
+	Port                   string        `mapstructure:"port"`
+	IdleTimeout            time.Duration `mapstructure:"idleTimeout"`
+	HandshakeTimeout       time.Duration `mapstructure:"handshakeTimeout"`
+	KeepAlivePeriodTimeout time.Duration `mapstructure:"keepAlivePeriodTimeout"`
+	CloseTimeout           time.Duration `mapstructure:"closeTimeout"`
+	StartTimeout           time.Duration `mapstructure:"startTimeout"`
+	NextProtos             []string      `mapstructure:"nextProtos"`
+	MaxIncomingStreams     int64         `mapstructure:"maxIncomingStreams"`
+	MaxIncomingUniStreams  int64         `mapstructure:"maxIncomingUniStreams"`
+}
+
+type Networking struct {
+	NextProtos   []string `mapstructure:"nextProtos"`
+	STUNHost     string   `mapstructure:"stunHost"`
+	STUNPort     int      `mapstructure:"stunPort"`
+	TURNHost     string   `mapstructure:"turnHost"`
+	TURNPort     int      `mapstructure:"turnPort"`
+	TURNUsername string   `mapstructure:"turnUsername"`
+	TURNPassword string   `mapstructure:"turnPassword"`
 }
 
 func NewConfig(path string) *Config {

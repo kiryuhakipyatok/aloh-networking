@@ -1,19 +1,24 @@
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"io"
 	"math/big"
+
+	"github.com/quic-go/quic-go"
 )
 
 func Uint8ToPtr(ui uint8) *uint8 {
 	return &ui
 }
 
-func GenerateTLSConfig() *tls.Config {
+func GenerateTLSConfig(protos []string) *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		panic(err)
@@ -34,7 +39,32 @@ func GenerateTLSConfig() *tls.Config {
 	}
 
 	return &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"networking-p2p"}, // Важно: протоколы должны совпадать
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{tlsCert},
+		NextProtos:         protos,
 	}
+}
+
+func SetFirstByte(fb byte, data []byte) []byte {
+	sdp := make([]byte, 0, len(data)+1)
+	sdp = append(sdp, fb)
+	sdp = append(sdp, data...)
+	return sdp
+}
+
+func CheckErr(ctx context.Context, err error) error {
+
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil || errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	var appErr *quic.ApplicationError
+	if errors.As(err, &appErr) {
+		if appErr.ErrorCode == 0 {
+			return nil
+		}
+	}
+
+	return err
+
 }

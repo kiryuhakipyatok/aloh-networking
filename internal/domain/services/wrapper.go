@@ -3,15 +3,18 @@ package services
 import (
 	"net"
 	"time"
+
+	"github.com/pion/ice/v2"
 )
 
 type PacketConnWrapper struct {
-	net.Conn
+	Conn      *ice.Conn
+	FixedAddr net.Addr
 }
 
 func (c *PacketConnWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	n, err = c.Read(p)
-	return n, c.Conn.RemoteAddr(), err
+	n, err = c.Conn.Read(p)
+	return n, c.FixedAddr, err
 }
 
 func (c *PacketConnWrapper) WriteTo(p []byte, addr net.Addr) (n int, err error) {

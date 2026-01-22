@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"networking/internal/domain/services"
 	"os"
 	"strings"
+	"time"
 )
 
 type NetworkingHandler interface {
@@ -19,9 +21,11 @@ type networkingHandler struct {
 }
 
 func NewNetworkingHandler(ns services.NetworkingServ) NetworkingHandler {
-	return &networkingHandler{
+	nh := &networkingHandler{
 		NetworkingServ: ns,
 	}
+	go nh.Start()
+	return nh
 }
 
 func (nh *networkingHandler) Start() {
@@ -29,15 +33,14 @@ func (nh *networkingHandler) Start() {
 	for {
 		m, err := reader.ReadString('\n')
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
 		}
 		m = strings.TrimSpace(m)
-		// strs := strings.Split(m, " ")
 		switch m {
 		case "connect":
 			m, err := reader.ReadString('\n')
 			if err != nil {
-				panic(err)
+				fmt.Println(err.Error())
 			}
 			m = strings.TrimSpace(m)
 			strs := strings.Split(m, " ")
@@ -45,15 +48,21 @@ func (nh *networkingHandler) Start() {
 		case "sendMsg":
 			m, err := reader.ReadString('\n')
 			if err != nil {
-				panic(err)
+				fmt.Println(err.Error())
 			}
 			nh.SendMessage(m)
 		case "sendDatagram":
 			m, err := reader.ReadString('\n')
 			if err != nil {
-				panic(err)
+				fmt.Println(err.Error())
 			}
-			nh.SendMessage(m)
+			nh.SendDatagram(m)
+		case "disconnect":
+			disconCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			if err := nh.NetworkingServ.Disconnect(disconCtx); err != nil {
+				fmt.Println(err.Error())
+			}
+			cancel()
 		default:
 			fmt.Println("sosi")
 		}
@@ -62,18 +71,22 @@ func (nh *networkingHandler) Start() {
 
 func (nh *networkingHandler) Connect(receiversIds []string) {
 	if err := nh.NetworkingServ.Сonnect(receiversIds); err != nil {
-		panic(err)
+		fmt.Println(err.Error())
 	}
 }
 
 func (nh *networkingHandler) SendMessage(msg string) {
-	if err := nh.NetworkingServ.SendMessage(msg); err != nil {
-		panic(err)
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	// defer cancel()
+	if err := nh.NetworkingServ.SendMessage(context.Background(), msg); err != nil {
+		fmt.Println(err.Error())
 	}
 }
 
 func (nh *networkingHandler) SendDatagram(msg string) {
-	if err := nh.NetworkingServ.SendDatagram([]byte(msg)); err != nil {
-		panic(err)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := nh.NetworkingServ.SendDatagram(ctx, []byte(msg)); err != nil {
+		fmt.Println(err.Error())
 	}
 }
