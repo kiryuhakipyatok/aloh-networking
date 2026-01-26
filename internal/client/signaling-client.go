@@ -12,7 +12,6 @@ import (
 	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/quic-go/quic-go"
@@ -59,7 +58,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 		logger:      l,
 		closeCtx:    ctx,
 	}
-	regCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	defer cancel()
 	if err := sc.registerConnect(regCtx, id); err != nil {
 		panic(fmt.Errorf("failed to register connect: %w", err))
@@ -146,12 +145,10 @@ func (sc *signalingClient) receiveResponses() {
 		op  = "signalingClient.receiveResponses"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("receiving responses from signaling...")
-
 	for {
 		var msg protocol.ResponseMessage
 		if err := sc.decoder.Decode(&msg); err != nil {
-			if cerr := utils.CheckErr(context.Background(), err); cerr == nil {
+			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed to receive response message from signaling", logger.Err(err))
@@ -166,12 +163,11 @@ func (sc *signalingClient) sendSDP() {
 		op  = "signalingClient.sendSDP"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("sending sdp to signaling...")
 
 	for sdp := range sc.sendSDPs {
 		msgIdLog := logger.Attr("msgId", sdp.Id)
 		if err := sc.encoder.Encode(sdp); err != nil {
-			if cerr := utils.CheckErr(context.Background(), err); cerr == nil {
+			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed to send sdp to signaling", logger.Err(err), msgIdLog)
@@ -187,12 +183,11 @@ func (sc *signalingClient) receiveSDP() {
 		op  = "signalingClient.sendSDP"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("receiving sdp to signaling...")
 
 	for {
-		stream, err := sc.conn.AcceptUniStream(context.Background())
+		stream, err := sc.conn.AcceptUniStream(sc.closeCtx)
 		if err != nil {
-			if cerr := utils.CheckErr(context.Background(), err); cerr == nil {
+			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed to accept uni stream from signaling", logger.Err(err))
@@ -200,14 +195,14 @@ func (sc *signalingClient) receiveSDP() {
 		streamIdLog := logger.Attr("streamId", stream.StreamID())
 		data, err := io.ReadAll(stream)
 		if err != nil {
-			if cerr := utils.CheckErr(context.Background(), err); cerr == nil {
+			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed to read data from uni stream", logger.Err(err), streamIdLog)
 		}
 		sdpMsg, err := protocol.ToReplyMessage(data)
 		if err != nil {
-			if cerr := utils.CheckErr(context.Background(), err); cerr == nil {
+			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed cast sdp message to reply message", logger.Err(err), streamIdLog)

@@ -19,7 +19,6 @@ import (
 func Run() {
 	path := os.Getenv("CONFIG_PATH")
 	cfg := config.NewConfig(path)
-	fmt.Println(cfg)
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 	log := logger.NewLogger(cfg.App)
@@ -42,7 +41,16 @@ func Run() {
 		}
 	}()
 	log.Info("networking client created")
-	_ = handlers.NewNetworkingHandler(networkingService)
+	networkingHandler := handlers.NewNetworkingHandler(networkingService)
+	networkingHandler.OnChat(func(data []byte) {
+		fmt.Println(string(data))
+	})
+	networkingHandler.OnVideo(func(data []byte) {
+		fmt.Println(string(data))
+	})
+	networkingHandler.OnVoice(func(data []byte) {
+		fmt.Println(string(data))
+	})
 	log.Info("networking handler created")
 	log.Info("app started")
 	<-quit

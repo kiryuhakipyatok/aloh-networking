@@ -16,8 +16,12 @@ signaling:
   certsPath: "../etc/certs"
   nextProtos: ["aloh-proto"]
   maxIncomingStreams: 100
+  regTimeout: 10s
 
 networking:
+  handshakeTimeout: 10s
+  idleTimeout: 10m
+  keepAlivePeriodTimeout: 10s
   nextProtos: ["aloh-networking"]
   stunHost: "${STUN_HOST}"
   stunPort: "${STUN_PORT}"

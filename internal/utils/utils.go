@@ -54,7 +54,7 @@ func SetFirstByte(fb byte, data []byte) []byte {
 
 func CheckErr(ctx context.Context, err error) error {
 
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil || errors.Is(err, io.EOF) {
+	if errors.Is(err, context.Canceled) || ctx.Err() != nil || errors.Is(err, io.EOF) {
 		return nil
 	}
 

@@ -35,16 +35,20 @@ type Signaling struct {
 	NextProtos             []string      `mapstructure:"nextProtos"`
 	MaxIncomingStreams     int64         `mapstructure:"maxIncomingStreams"`
 	MaxIncomingUniStreams  int64         `mapstructure:"maxIncomingUniStreams"`
+	RegTimeout             time.Duration `mapstructure:"regTimeout"`
 }
 
 type Networking struct {
-	NextProtos   []string `mapstructure:"nextProtos"`
-	STUNHost     string   `mapstructure:"stunHost"`
-	STUNPort     int      `mapstructure:"stunPort"`
-	TURNHost     string   `mapstructure:"turnHost"`
-	TURNPort     int      `mapstructure:"turnPort"`
-	TURNUsername string   `mapstructure:"turnUsername"`
-	TURNPassword string   `mapstructure:"turnPassword"`
+	IdleTimeout            time.Duration `mapstructure:"idleTimeout"`
+	HandshakeTimeout       time.Duration `mapstructure:"handshakeTimeout"`
+	KeepAlivePeriodTimeout time.Duration `mapstructure:"keepAlivePeriodTimeout"`
+	NextProtos             []string      `mapstructure:"nextProtos"`
+	STUNHost               string        `mapstructure:"stunHost"`
+	STUNPort               int           `mapstructure:"stunPort"`
+	TURNHost               string        `mapstructure:"turnHost"`
+	TURNPort               int           `mapstructure:"turnPort"`
+	TURNUsername           string        `mapstructure:"turnUsername"`
+	TURNPassword           string        `mapstructure:"turnPassword"`
 }
 
 func NewConfig(path string) *Config {
