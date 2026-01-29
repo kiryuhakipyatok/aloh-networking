@@ -49,6 +49,8 @@ type Networking struct {
 	TURNPort               int           `mapstructure:"turnPort"`
 	TURNUsername           string        `mapstructure:"turnUsername"`
 	TURNPassword           string        `mapstructure:"turnPassword"`
+	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
+	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 }
 
 func NewConfig(path string) *Config {

@@ -7,7 +7,7 @@ import (
 	"networking/internal/client"
 	"networking/internal/config"
 	"networking/internal/domain/repository"
-	"networking/internal/domain/services"
+	"networking/internal/domain/services/networking"
 	"networking/internal/handlers"
 	"networking/internal/protocol"
 	"networking/pkg/logger"
@@ -33,13 +33,7 @@ func Run() {
 	log.Info("signaling client created")
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	networkingService := services.NewNetworkingServ(closeCtx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
-	go func() {
-		if err := networkingService.ReceiveConnects(); err != nil {
-			log.Error("failed to receive connects", logger.Err(err))
-			quit <- syscall.SIGINT
-		}
-	}()
+	networkingService := networking.NewNetworkingServ(closeCtx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 	log.Info("networking client created")
 	networkingHandler := handlers.NewNetworkingHandler(networkingService)
 	networkingHandler.OnChat(func(data []byte) {
@@ -56,7 +50,7 @@ func Run() {
 	<-quit
 	log.Info("app closing...")
 	cancel()
-	networkingService.Disconnect(context.Background())
+	networkingService.Disconnect()
 	signalingClient.Close(0, "close")
 	close(quit)
 	log.Info("app closed")

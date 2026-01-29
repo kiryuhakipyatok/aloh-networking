@@ -29,3 +29,5 @@ networking:
   turnPort: "${TURN_PORT}"
   turnUsername: "${TURN_USERNAME}"
   turnPassword: "${TURN_PASSWORD}"
+  newSDPTimeout: 2s
+  sendInStreamTimeout: 5s

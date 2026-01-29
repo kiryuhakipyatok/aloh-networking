@@ -4,24 +4,19 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"networking/internal/domain/services"
+	"networking/internal/domain/services/networking"
+	"networking/internal/protocol"
 	"networking/internal/utils"
 	"os"
 	"strings"
 	"time"
 )
 
-const (
-	CHAT = iota
-	VOICE
-	VIDEO
-)
-
 type NetworkingHandler struct {
-	NetworkingServ services.NetworkingServ
+	NetworkingServ networking.NetworkingServ
 }
 
-func NewNetworkingHandler(ns services.NetworkingServ) *NetworkingHandler {
+func NewNetworkingHandler(ns networking.NetworkingServ) *NetworkingHandler {
 	nh := &NetworkingHandler{
 		NetworkingServ: ns,
 	}
@@ -45,69 +40,86 @@ func (nh *NetworkingHandler) Start() {
 			}
 			m = strings.TrimSpace(m)
 			strs := strings.Split(m, " ")
-			nh.Connect(strs)
+			if err := nh.Connect(strs); err != nil {
+				fmt.Println(err)
+			}
 		case "sendMsg":
 			m, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			nh.SendMessage(m)
+			if err := nh.SendMessage(m); err != nil {
+				fmt.Println(err)
+			}
 		case "sendVoice":
 			m, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			nh.SendVoice([]byte(m))
+			if err := nh.SendVoice([]byte(m)); err != nil {
+				fmt.Println(err)
+			}
 		case "sendVideo":
 			m, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			nh.SendVideo([]byte(m))
+			if err := nh.SendVideo([]byte(m)); err != nil {
+				fmt.Println(err)
+			}
 		case "disconnect":
-			disconCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			if err := nh.NetworkingServ.Disconnect(disconCtx); err != nil {
+			if err := nh.NetworkingServ.Disconnect(); err != nil {
 				fmt.Println(err.Error())
 			}
-			cancel()
 		default:
 			fmt.Println("sosi")
 		}
 	}
 }
 
-func (nh *NetworkingHandler) Connect(receiversIds []string) {
+func (nh *NetworkingHandler) Connect(receiversIds []string) error {
 	ridsLen := len(receiversIds)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(ridsLen))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(ridsLen*2))
 	defer cancel()
 	if err := nh.NetworkingServ.Сonnect(ctx, receiversIds); err != nil {
-		fmt.Println(err.Error())
+		return protocol.ProcessError(err)
 	}
+	return nil
 }
 
-func (nh *NetworkingHandler) SendMessage(msg string) {
-	data := utils.SetFirstByte(CHAT, []byte(msg))
+func (nh *NetworkingHandler) Disconnect() error {
+	if err := nh.NetworkingServ.Disconnect(); err != nil {
+		return protocol.ProcessError(err)
+	}
+	return nil
+}
+
+func (nh *NetworkingHandler) SendMessage(msg string) error {
+	data := utils.SetFirstByte(networking.CHAT, []byte(msg))
 	if err := nh.NetworkingServ.SendInStream(context.Background(), data); err != nil {
-		fmt.Println(err.Error())
+		return protocol.ProcessError(err)
 	}
+	return nil
 }
 
-func (nh *NetworkingHandler) SendVoice(data []byte) {
+func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	data = utils.SetFirstByte(VOICE, data)
+	data = utils.SetFirstByte(networking.VOICE, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		fmt.Println(err.Error())
+		return protocol.ProcessError(err)
 	}
+	return nil
 }
 
-func (nh *NetworkingHandler) SendVideo(data []byte) {
+func (nh *NetworkingHandler) SendVideo(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	data = utils.SetFirstByte(VIDEO, data)
+	data = utils.SetFirstByte(networking.VIDEO, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		fmt.Println(err.Error())
+		return protocol.ProcessError(err)
 	}
+	return nil
 }
 
 func (nh *NetworkingHandler) OnChat(f func(data []byte)) {
