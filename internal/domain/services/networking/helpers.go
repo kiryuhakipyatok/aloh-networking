@@ -233,7 +233,9 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 			}
 
 			go func() {
-				if err := ns.establishConnection(ctx, session); err != nil {
+				estCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+				defer cancel()
+				if err := ns.establishConnection(estCtx, session); err != nil {
 					log.Error("failed to establish connection", logger.Err(err), userLog)
 					ns.disconnectSession(session)
 				}
