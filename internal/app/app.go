@@ -14,28 +14,56 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/joho/godotenv"
 )
 
-func Run() {
-	path := os.Getenv("CONFIG_PATH")
-	cfg := config.NewConfig(path)
-	id := flag.String("id", "123", "user id")
-	flag.Parse()
+func Init(configPath string, userID string) (networking.NetworkingServ, context.CancelFunc) {
+	if configPath != "" {
+		_ = godotenv.Load(configPath)
+	}
+
+	envPath := os.Getenv("CONFIG_PATH")
+	cfg := config.NewConfig(envPath)
+
 	log := logger.NewLogger(cfg.App)
-	log.Info("app starting...")
-	log.Info("config loaded")
+	log.Info("initializing library...")
+
 	sessionRepo := repository.NewSessionRepository()
-	log.Info("session repo created")
+
 	sendSDP := make(chan protocol.Message, cfg.App.SendSDPSize)
 	receiveSDP := make(chan protocol.ReplyMessage, cfg.App.ReceiveSDPSize)
-	closeCtx, cancel := context.WithCancel(context.Background())
-	signalingClient := client.NewSignalingClient(closeCtx, log, *id, sendSDP, receiveSDP, cfg.Signaling)
-	log.Info("signaling client created")
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	networkingService := networking.NewNetworkingServ(closeCtx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
-	log.Info("networking client created")
-	networkingHandler := handlers.NewNetworkingHandler(networkingService)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	signalingClient := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
+	networkingService := networking.NewNetworkingServ(ctx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
+
+	log.Info("library initialized for user: " + userID)
+
+	return networkingService, func() {
+		log.Info("stopping library...")
+		cancel()
+		networkingService.Disconnect()
+		signalingClient.Close(0, "close")
+		log.Info("library stopped")
+	}
+}
+
+func Run() {
+	if err := godotenv.Load("../../.env"); err != nil {
+		panic(err)
+	}
+
+	id := flag.String("id", "123", "user id")
+	flag.Parse()
+
+	path := os.Getenv("CONFIG_PATH")
+
+	networkingServ, close := Init(path, *id)
+
+	networkingHandler := handlers.NewNetworkingHandler(networkingServ)
+
 	networkingHandler.OnChat(func(data []byte) {
 		fmt.Println(string(data))
 	})
@@ -45,13 +73,10 @@ func Run() {
 	networkingHandler.OnVoice(func(data []byte) {
 		fmt.Println(string(data))
 	})
-	log.Info("networking handler created")
-	log.Info("app started")
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info("app closing...")
-	cancel()
-	networkingService.Disconnect()
-	signalingClient.Close(0, "close")
-	close(quit)
-	log.Info("app closed")
+
+	close()
 }
