@@ -8,7 +8,7 @@ typedef const char cchar_t;
 
 typedef uintptr_t handler;
 
-typedef void (*DataCallback)(void* data, int len);
+typedef void (*DataCallback)(void* data, size_t len);
 
 static void call_callback(DataCallback f, void* data, int len) {
     if (f) {
@@ -20,6 +20,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"runtime/cgo"
 	"strings"
 	"unsafe"
@@ -73,9 +74,11 @@ func getWrapper(h C.handler) *Wrapper {
 //export Connect
 func Connect(h C.handler, idsStr *C.cchar_t) *C.cchar_t {
 	wr := getWrapper(h)
-	goIdsStr := C.GoString((*C.char)(idsStr))
-	receivers := strings.Split(goIdsStr, ",")
 
+	goIdsStr := C.GoString((*C.char)(idsStr))
+	fmt.Println("goIdsStr:", goIdsStr)
+	receivers := strings.Split(goIdsStr, ",")
+	fmt.Println("receivers:", receivers)
 	if err := wr.Handler.Connect(receivers); err != nil {
 		return C.CString(err.Error())
 	}
