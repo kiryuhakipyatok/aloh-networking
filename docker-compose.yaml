@@ -1,0 +1,15 @@
+services:
+  user-123:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=123"]
+    stdin_open: true
+    tty: true
+  user-456:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=456"]
+    stdin_open: true
+    tty: true

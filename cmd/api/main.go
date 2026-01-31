@@ -4,10 +4,12 @@ package main
 #include <stdlib.h>
 #include <stdint.h>
 
-// Определение типа callback
+typedef const char cchar_t;
+
+typedef uintptr_t handler;
+
 typedef void (*DataCallback)(void* data, int len);
 
-// Хелпер для вызова callback из Go
 static void call_callback(DataCallback f, void* data, int len) {
     if (f) {
         f(data, len);
@@ -32,12 +34,12 @@ type Wrapper struct {
 }
 
 //export NewHandler
-func NewHandler(userID *C.char, configPath *C.char) C.uintptr_t {
-	goUserID := C.GoString(userID)
+func NewHandler(userID *C.cchar_t, configPath *C.cchar_t) C.handler {
+	goUserID := C.GoString((*C.char)(userID))
 
 	goConfigPath := ""
 	if configPath != nil {
-		goConfigPath = C.GoString(configPath)
+		goConfigPath = C.GoString((*C.char)(configPath))
 	}
 
 	service, cancel := app.Init(goConfigPath, goUserID)
@@ -53,7 +55,7 @@ func NewHandler(userID *C.char, configPath *C.char) C.uintptr_t {
 }
 
 //export DeleteHandler
-func DeleteHandler(h C.uintptr_t) {
+func DeleteHandler(h C.handler) {
 	handle := cgo.Handle(h)
 	wr := handle.Value().(*Wrapper)
 
@@ -64,14 +66,14 @@ func DeleteHandler(h C.uintptr_t) {
 	handle.Delete()
 }
 
-func getWrapper(h C.uintptr_t) *Wrapper {
+func getWrapper(h C.handler) *Wrapper {
 	return cgo.Handle(h).Value().(*Wrapper)
 }
 
 //export Connect
-func Connect(h C.uintptr_t, idsStr *C.char) *C.char {
+func Connect(h C.handler, idsStr *C.cchar_t) *C.cchar_t {
 	wr := getWrapper(h)
-	goIdsStr := C.GoString(idsStr)
+	goIdsStr := C.GoString((*C.char)(idsStr))
 	receivers := strings.Split(goIdsStr, ",")
 
 	if err := wr.Handler.Connect(receivers); err != nil {
@@ -81,7 +83,7 @@ func Connect(h C.uintptr_t, idsStr *C.char) *C.char {
 }
 
 //export Disconnect
-func Disconnect(h C.uintptr_t) *C.char {
+func Disconnect(h C.handler) *C.cchar_t {
 	wr := getWrapper(h)
 	if err := wr.Handler.Disconnect(); err != nil {
 		return C.CString(err.Error())
@@ -90,9 +92,9 @@ func Disconnect(h C.uintptr_t) *C.char {
 }
 
 //export SendMessage
-func SendMessage(h C.uintptr_t, msg *C.char) *C.char {
+func SendMessage(h C.handler, msg *C.cchar_t) *C.cchar_t {
 	wr := getWrapper(h)
-	goMsg := C.GoString(msg)
+	goMsg := C.GoString((*C.char)(msg))
 
 	if err := wr.Handler.SendMessage(goMsg); err != nil {
 		return C.CString(err.Error())
@@ -101,7 +103,7 @@ func SendMessage(h C.uintptr_t, msg *C.char) *C.char {
 }
 
 //export SendVoice
-func SendVoice(h C.uintptr_t, data unsafe.Pointer, length C.int) *C.char {
+func SendVoice(h C.handler, data unsafe.Pointer, length C.int) *C.cchar_t {
 	wr := getWrapper(h)
 	goData := C.GoBytes(data, length)
 	if err := wr.Handler.SendVoice(goData); err != nil {
@@ -111,7 +113,7 @@ func SendVoice(h C.uintptr_t, data unsafe.Pointer, length C.int) *C.char {
 }
 
 //export SendVideo
-func SendVideo(h C.uintptr_t, data unsafe.Pointer, length C.int) *C.char {
+func SendVideo(h C.handler, data unsafe.Pointer, length C.int) *C.cchar_t {
 	wr := getWrapper(h)
 	goData := C.GoBytes(data, length)
 	if err := wr.Handler.SendVideo(goData); err != nil {
@@ -121,7 +123,7 @@ func SendVideo(h C.uintptr_t, data unsafe.Pointer, length C.int) *C.char {
 }
 
 //export RegisterOnChat
-func RegisterOnChat(h C.uintptr_t, cb C.DataCallback) {
+func RegisterOnChat(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
 	wr.Handler.OnChat(func(data []byte) {
 		if len(data) == 0 {
@@ -134,7 +136,7 @@ func RegisterOnChat(h C.uintptr_t, cb C.DataCallback) {
 }
 
 //export RegisterOnVoice
-func RegisterOnVoice(h C.uintptr_t, cb C.DataCallback) {
+func RegisterOnVoice(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
 	wr.Handler.OnVoice(func(data []byte) {
 		if len(data) == 0 {
@@ -145,7 +147,7 @@ func RegisterOnVoice(h C.uintptr_t, cb C.DataCallback) {
 }
 
 //export RegisterOnVideo
-func RegisterOnVideo(h C.uintptr_t, cb C.DataCallback) {
+func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
 	wr.Handler.OnVideo(func(data []byte) {
 		if len(data) == 0 {

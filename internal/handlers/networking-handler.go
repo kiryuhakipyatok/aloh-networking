@@ -3,7 +3,9 @@ package handlers
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"networking/internal/domain/services/networking"
 	"networking/internal/protocol"
 	"networking/internal/utils"
@@ -20,7 +22,6 @@ func NewNetworkingHandler(ns networking.NetworkingServ) *NetworkingHandler {
 	nh := &NetworkingHandler{
 		NetworkingServ: ns,
 	}
-	go nh.Start()
 	return nh
 }
 
@@ -28,15 +29,17 @@ func (nh *NetworkingHandler) Start() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		m, err := reader.ReadString('\n')
-		if err != nil {
+		if err != nil && !errors.Is(err, io.EOF) {
 			fmt.Println(err.Error())
+			break
 		}
 		m = strings.TrimSpace(m)
 		switch m {
 		case "connect":
 			m, err := reader.ReadString('\n')
-			if err != nil {
+			if err != nil && !errors.Is(err, io.EOF) {
 				fmt.Println(err.Error())
+				break
 			}
 			m = strings.TrimSpace(m)
 			strs := strings.Split(m, " ")
@@ -45,24 +48,27 @@ func (nh *NetworkingHandler) Start() {
 			}
 		case "sendMsg":
 			m, err := reader.ReadString('\n')
-			if err != nil {
+			if err != nil && !errors.Is(err, io.EOF) {
 				fmt.Println(err.Error())
+				break
 			}
 			if err := nh.SendMessage(m); err != nil {
 				fmt.Println(err)
 			}
 		case "sendVoice":
 			m, err := reader.ReadString('\n')
-			if err != nil {
+			if err != nil && !errors.Is(err, io.EOF) {
 				fmt.Println(err.Error())
+				break
 			}
 			if err := nh.SendVoice([]byte(m)); err != nil {
 				fmt.Println(err)
 			}
 		case "sendVideo":
 			m, err := reader.ReadString('\n')
-			if err != nil {
+			if err != nil && !errors.Is(err, io.EOF) {
 				fmt.Println(err.Error())
+				break
 			}
 			if err := nh.SendVideo([]byte(m)); err != nil {
 				fmt.Println(err)

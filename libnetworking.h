@@ -26,10 +26,12 @@ extern const char *_GoStringPtr(_GoString_ s);
 #include <stdlib.h>
 #include <stdint.h>
 
-// Определение типа callback
+typedef const char cchar_t;
+
+typedef uintptr_t handler;
+
 typedef void (*DataCallback)(void* data, int len);
 
-// Хелпер для вызова callback из Go
 static void call_callback(DataCallback f, void* data, int len) {
     if (f) {
         f(data, len);
@@ -98,16 +100,16 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern uintptr_t NewHandler(char* userID, char* configPath);
-extern void DeleteHandler(uintptr_t h);
-extern char* Connect(uintptr_t h, char* idsStr);
-extern char* Disconnect(uintptr_t h);
-extern char* SendMessage(uintptr_t h, char* msg);
-extern char* SendVoice(uintptr_t h, void* data, int length);
-extern char* SendVideo(uintptr_t h, void* data, int length);
-extern void RegisterOnChat(uintptr_t h, DataCallback cb);
-extern void RegisterOnVoice(uintptr_t h, DataCallback cb);
-extern void RegisterOnVideo(uintptr_t h, DataCallback cb);
+extern __declspec(dllexport) handler NewHandler(cchar_t* userID, cchar_t* configPath);
+extern __declspec(dllexport) void DeleteHandler(handler h);
+extern __declspec(dllexport) cchar_t* Connect(handler h, cchar_t* idsStr);
+extern __declspec(dllexport) cchar_t* Disconnect(handler h);
+extern __declspec(dllexport) cchar_t* SendMessage(handler h, cchar_t* msg);
+extern __declspec(dllexport) cchar_t* SendVoice(handler h, void* data, int length);
+extern __declspec(dllexport) cchar_t* SendVideo(handler h, void* data, int length);
+extern __declspec(dllexport) void RegisterOnChat(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVoice(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVideo(handler h, DataCallback cb);
 
 #ifdef __cplusplus
 }
