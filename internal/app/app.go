@@ -33,7 +33,7 @@ func Run() {
 	log.Info("signaling client created")
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	networkingService := networking.NewNetworkingServ(closeCtx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
+	networkingService := networking.NewNetworkingServ(closeCtx, *id, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 	log.Info("networking client created")
 	networkingHandler := handlers.NewNetworkingHandler(networkingService)
 	networkingHandler.OnChat(func(data []byte) {

@@ -41,6 +41,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 		NextProtos:         cfg.NextProtos,
 	}
 	quicConf := &quic.Config{
+
 		HandshakeIdleTimeout:  cfg.HandshakeTimeout,
 		MaxIdleTimeout:        cfg.IdleTimeout,
 		MaxIncomingStreams:    cfg.MaxIncomingStreams,

@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"errors"
 	"networking/internal/client"
 	"networking/internal/config"
 	"networking/internal/domain/models"
@@ -43,6 +44,7 @@ type NetworkingServ interface {
 }
 
 type networkingServ struct {
+	userId          string
 	signalingClient client.SignalingClient
 	sessionRepo     repository.SessionRepository
 	receiveSDPs     chan protocol.ReplyMessage
@@ -53,9 +55,10 @@ type networkingServ struct {
 	handlers
 }
 
-func NewNetworkingServ(ctx context.Context, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan protocol.ReplyMessage) NetworkingServ {
+func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan protocol.ReplyMessage) NetworkingServ {
 	closeCtx, cancel := context.WithCancel(ctx)
 	ns := &networkingServ{
+		userId:          id,
 		signalingClient: sc,
 		sessionRepo:     sr,
 		receiveSDPs:     receiveSDPs,
@@ -79,6 +82,7 @@ func (ns *networkingServ) Сonnect(ctx context.Context, rids []string) error {
 	op := "networkingServ.Сonnect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
+	userIdLog := logger.Attr("userId", ns.userId)
 	mergeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
@@ -90,22 +94,30 @@ func (ns *networkingServ) Сonnect(ctx context.Context, rids []string) error {
 	}()
 	g, gCtx := errgroup.WithContext(mergeCtx)
 	for _, rid := range rids {
+		if rid == ns.userId {
+			errMsg := "cannot connect to himself"
+			log.Error(errMsg, userIdLog)
+			return errs.NewAppError(op, errors.New(errMsg))
+		}
 		g.Go(func() error {
 			receiverIdLog := logger.Attr("receiverId", rid)
+			connLog := logger.NewLogData(receiverIdLog, userIdLog)
+
 			session, err := ns.createSession(gCtx, rid, true)
 			if err != nil {
-				log.Error("failed to create session", logger.Err(err), receiverIdLog)
+				log.Error("failed to create session", logger.Err(err), connLog)
 				return err
 			}
 
 			if err := ns.establishConnection(gCtx, session); err != nil {
-				log.Error("failed to establish connection", logger.Err(err), receiverIdLog)
+				log.Error("failed to establish connection", logger.Err(err), connLog)
 				ns.disconnectSession(session)
 				return err
 			}
 
 			return nil
 		})
+
 	}
 	if err := g.Wait(); err != nil {
 		return errs.NewAppError(op, err)
