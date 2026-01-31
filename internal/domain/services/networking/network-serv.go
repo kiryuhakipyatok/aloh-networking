@@ -7,7 +7,6 @@ import (
 	"networking/internal/config"
 	"networking/internal/domain/models"
 	"networking/internal/domain/repository"
-	"networking/internal/protocol"
 	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
@@ -47,7 +46,7 @@ type networkingServ struct {
 	userId          string
 	signalingClient client.SignalingClient
 	sessionRepo     repository.SessionRepository
-	receiveSDPs     chan protocol.ReplyMessage
+	receiveSDPs     chan client.ReplyMessage
 	sdpsGroup       singleflight.Group
 	logger          *logger.Logger
 	cfg             config.Networking
@@ -55,7 +54,7 @@ type networkingServ struct {
 	handlers
 }
 
-func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan protocol.ReplyMessage) NetworkingServ {
+func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan client.ReplyMessage) NetworkingServ {
 	closeCtx, cancel := context.WithCancel(ctx)
 	ns := &networkingServ{
 		userId:          id,
@@ -97,20 +96,19 @@ func (ns *networkingServ) Сonnect(ctx context.Context, rids []string) error {
 		if rid == ns.userId {
 			errMsg := "cannot connect to himself"
 			log.Error(errMsg, userIdLog)
-			return errs.NewAppError(op, errors.New(errMsg))
+			return errors.New(errMsg)
 		}
 		g.Go(func() error {
 			receiverIdLog := logger.Attr("receiverId", rid)
-			connLog := logger.NewLogData(receiverIdLog, userIdLog)
 
 			session, err := ns.createSession(gCtx, rid, true)
 			if err != nil {
-				log.Error("failed to create session", logger.Err(err), connLog)
+				log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
 				return err
 			}
 
 			if err := ns.establishConnection(gCtx, session); err != nil {
-				log.Error("failed to establish connection", logger.Err(err), connLog)
+				log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
 				ns.disconnectSession(session)
 				return err
 			}

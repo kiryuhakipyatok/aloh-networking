@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"networking/internal/client"
 	"networking/internal/domain/models"
-	"networking/internal/protocol"
 	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
@@ -78,7 +78,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, nil
 	default:
 	}
-	log.Info("creating new agent", ridLog)
+	log.Info("creating new session...", ridLog)
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
@@ -165,7 +165,7 @@ func (ns *networkingServ) receiveConnects() error {
 			return nil
 		default:
 		}
-		go func(sdp protocol.ReplyMessage) {
+		go func(sdp client.ReplyMessage) {
 			ctx, cancel := context.WithTimeout(ns.closeCtx, time.Second*5)
 			defer cancel()
 			senderId := sdp.Sender
@@ -176,10 +176,12 @@ func (ns *networkingServ) receiveConnects() error {
 			})
 			if err != nil {
 				log.Error("failed to get session", logger.Err(err), senderIdLog)
+				return
 			}
 			session, ok := v.(*models.Session)
 			if !ok {
 				log.Error("invalid session type", senderIdLog)
+				return
 			}
 			switch sdp.Payload[0] {
 			case CREDS:
@@ -189,6 +191,7 @@ func (ns *networkingServ) receiveConnects() error {
 				remotePwd := creds[1]
 				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
 					log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
+					return
 				}
 				select {
 				case session.CredsChan <- struct{}{}:
@@ -201,9 +204,11 @@ func (ns *networkingServ) receiveConnects() error {
 				c, err := ice.UnmarshalCandidate(string(sdp.Payload[1:]))
 				if err != nil {
 					log.Error("failed to unmarshal candidate", logger.Err(err), senderIdLog)
+					return
 				}
 				if err := session.Agent.AddRemoteCandidate(c); err != nil {
 					log.Error("failed to add remote candidate", logger.Err(err), senderIdLog)
+					return
 				}
 				log.Info("candidate processed", senderIdLog)
 			}
@@ -230,6 +235,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 			session, err = ns.createSession(ctx, id, false)
 			if err != nil {
 				log.Error("failed to create session", logger.Err(err), userLog)
+				return nil, errs.NewAppError(op, err)
 			}
 
 			go func() {
@@ -242,6 +248,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 			}()
 		} else {
 			log.Error("failed to get session", logger.Err(err), userLog)
+			return nil, errs.NewAppError(op, err)
 		}
 	}
 
@@ -353,6 +360,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 					return
 				}
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
+				return
 			}
 			ns.proccessData(data)
 		}
