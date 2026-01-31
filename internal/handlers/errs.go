@@ -65,11 +65,6 @@ func errorValidationMessage() ErrorCode {
 }
 
 func processError(err error) error {
-	// var ae errs.AppError
-	// if errors.As(err, &ae) {
-	// 	fmt.Println(ae)
-	// }
-	fmt.Printf("DEBUG: Error Type: %T, Error Value: %[1]v\n", err)
 	switch {
 	case errors.Is(err, errs.ErrAlreadyExistsBase):
 		return errorAlreadyExistsMessage()

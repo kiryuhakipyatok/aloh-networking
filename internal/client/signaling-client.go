@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"networking/internal/config"
@@ -63,6 +62,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 	regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	defer cancel()
 	if err := sc.registerConnect(regCtx, id); err != nil {
+		fmt.Println(err)
 		panic(fmt.Errorf("failed to register connect: %w", err))
 	}
 	go sc.sendSDP()
@@ -91,7 +91,7 @@ func (sc *signalingClient) Close(code uint, desc string) error {
 
 func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {
 	var (
-		op    = "signalingClient.RegisterConnect"
+		op    = "signalingClient.registerConnect"
 		log   = sc.logger.AddOp(op)
 		idLog = logger.Attr("user-id", id)
 	)
@@ -137,9 +137,9 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Info("connect registered successfully", idLog)
 		return nil
 	default:
-		err = errors.New(responseMsg.Msg)
-		log.Error("failed to register connect", logger.Err(err), idLog)
-		return errs.NewAppError(op, err)
+		err := codeToError(op, responseMsg.Code)
+		log.Error("failed to register connect", idLog, logger.Err(err))
+		return err
 	}
 
 }
@@ -164,7 +164,7 @@ func (sc *signalingClient) receiveResponses() {
 			continue
 		}
 
-		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", responseMsg.Code), logger.Attr("respMsg", responseMsg.Msg))
+		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", responseMsg.Code))
 		log.Info("new response message from signaling", respLog...)
 		resChanInt, ok := sc.pendingResponses.Load(responseMsg.MessageId)
 		if ok {

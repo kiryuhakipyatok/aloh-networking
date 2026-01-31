@@ -39,7 +39,6 @@ type ReplyMessage struct {
 type ResponseMessage struct {
 	Code      uint   `json:"code"`
 	MessageId string `json:"msgId"`
-	Msg       string `json:"msg"`
 }
 
 func ToRegisterConnectMessage(data json.RawMessage) (*RegisterConnectMessage, error) {
