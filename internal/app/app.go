@@ -51,7 +51,7 @@ func Init(configPath string, userID string) (networking.NetworkingServ, context.
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signalingClient := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
-	networkingService := networking.NewNetworkingServ(ctx, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
+	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 
 	log.Info("library initialized for user: " + userID)
 
