@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"networking/internal/config"
-	"networking/internal/protocol"
 	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
@@ -19,7 +18,7 @@ import (
 )
 
 type SignalingClient interface {
-	Close(code uint, desc string)
+	Close(code uint, desc string) error
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 }
 
@@ -28,14 +27,14 @@ type signalingClient struct {
 	ctrlStream       *quic.Stream
 	decoder          *json.Decoder
 	encoder          *json.Encoder
-	sendSDPs         chan protocol.Message
-	receiveSDPs      chan protocol.ReplyMessage
+	sendSDPs         chan Message
+	receiveSDPs      chan ReplyMessage
 	logger           *logger.Logger
 	closeCtx         context.Context
 	pendingResponses sync.Map
 }
 
-func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSDPs chan protocol.Message, receiveSDPs chan protocol.ReplyMessage, cfg config.Signaling) SignalingClient {
+func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSDPs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -72,7 +71,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 	return sc
 }
 
-func (sc *signalingClient) Close(code uint, desc string) {
+func (sc *signalingClient) Close(code uint, desc string) error {
 	var (
 		op  = "signalingClient.Close"
 		log = sc.logger.AddOp(op)
@@ -80,13 +79,14 @@ func (sc *signalingClient) Close(code uint, desc string) {
 	log.Info("siganling client closing...")
 	if err := sc.ctrlStream.Close(); err != nil {
 		log.Info("failed to close control stream", logger.Err(err))
-		panic(err)
+		return errs.NewAppError(op, err)
 	}
 	if err := sc.conn.CloseWithError(quic.ApplicationErrorCode(code), desc); err != nil {
 		log.Info("failed to close quic connection", logger.Err(err))
-		panic(err)
+		return errs.NewAppError(op, err)
 	}
 	log.Info("signaling client closed successfully")
+	return nil
 }
 
 func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {
@@ -109,7 +109,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 	sc.decoder = decoder
 	sc.encoder = encoder
 	sc.ctrlStream = ctrlStream
-	regMsg := protocol.RegisterConnectMessage{
+	regMsg := RegisterConnectMessage{
 		ID: id,
 	}
 	dataReg, err := json.Marshal(regMsg)
@@ -117,7 +117,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to marshal register message", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
-	msg := protocol.Message{
+	msg := Message{
 		Id:   uuid.NewString(),
 		Type: utils.Uint8ToPtr(0),
 		Data: json.RawMessage(dataReg),
@@ -127,7 +127,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		return errs.NewAppError(op, err)
 	}
 
-	var responseMsg protocol.ResponseMessage
+	var responseMsg ResponseMessage
 	if err := sc.decoder.Decode(&responseMsg); err != nil {
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
@@ -155,7 +155,7 @@ func (sc *signalingClient) receiveResponses() {
 			return
 		default:
 		}
-		var responseMsg protocol.ResponseMessage
+		var responseMsg ResponseMessage
 		if err := sc.decoder.Decode(&responseMsg); err != nil {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
@@ -168,12 +168,12 @@ func (sc *signalingClient) receiveResponses() {
 		log.Info("new response message from signaling", respLog...)
 		resChanInt, ok := sc.pendingResponses.Load(responseMsg.MessageId)
 		if ok {
-			reqChan, _ := resChanInt.(chan error)
+			reqChan, _ := resChanInt.(chan uint)
 			switch responseMsg.Code {
-			case 0:
-				reqChan <- nil
+			case SUCCESS:
+				reqChan <- SUCCESS
 			default:
-				reqChan <- errors.New(responseMsg.Msg)
+				reqChan <- responseMsg.Code
 			}
 		}
 	}
@@ -211,6 +211,11 @@ func (sc *signalingClient) receiveSDP() {
 	)
 
 	for {
+		select {
+		case <-sc.closeCtx.Done():
+			return
+		default:
+		}
 		stream, err := sc.conn.AcceptUniStream(sc.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
@@ -226,7 +231,7 @@ func (sc *signalingClient) receiveSDP() {
 			}
 			log.Error("failed to read data from uni stream", logger.Err(err), streamIdLog)
 		}
-		sdpMsg, err := protocol.ToReplyMessage(data)
+		sdpMsg, err := ToReplyMessage(data)
 		if err != nil {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
@@ -246,7 +251,7 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	)
 	log.Info("creating new sdp...")
 
-	sendMsg := protocol.SendPayloadMessage{
+	sendMsg := SendPayloadMessage{
 		RecevierIDs: ids,
 		Payload:     sdp,
 	}
@@ -256,10 +261,10 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 		return errs.NewAppError(op, err)
 	}
 	msgId := uuid.NewString()
-	respChan := make(chan error, 1)
+	respChan := make(chan uint, 1)
 	sc.pendingResponses.Store(msgId, respChan)
 	defer sc.pendingResponses.Delete(msgId)
-	msg := protocol.Message{
+	msg := Message{
 		Id:   msgId,
 		Type: utils.Uint8ToPtr(1),
 		Data: sendData,
@@ -270,9 +275,9 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 		return errs.ErrRequestTimeout(op)
 	}
 	select {
-	case err := <-respChan:
-		if err != nil {
-			return errs.NewAppError(op, err)
+	case code := <-respChan:
+		if code != SUCCESS {
+			return codeToError(op, code)
 		}
 	case <-ctx.Done():
 		return errs.ErrRequestTimeout(op)
@@ -283,4 +288,17 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	log.Info("sdp created successfully")
 	return nil
 
+}
+
+func codeToError(op string, code uint) error {
+	switch code {
+	case NOT_FOUND:
+		return errs.ErrNotFound(op)
+	case ALREADY_EXISTS:
+		return errs.ErrAlreadyExists(op)
+	case REQUEST_TIMEOUT:
+		return errs.ErrRequestTimeout(op)
+	default:
+		return errs.ErrInternal(op)
+	}
 }

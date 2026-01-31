@@ -9,7 +9,6 @@ import (
 	"networking/internal/domain/repository"
 	"networking/internal/domain/services/networking"
 	"networking/internal/handlers"
-	"networking/internal/protocol"
 	"networking/pkg/logger"
 	"os"
 	"os/signal"
@@ -45,8 +44,8 @@ func Init(configPath string, userID string) (networking.NetworkingServ, context.
 
 	sessionRepo := repository.NewSessionRepository()
 
-	sendSDP := make(chan protocol.Message, cfg.App.SendSDPSize)
-	receiveSDP := make(chan protocol.ReplyMessage, cfg.App.ReceiveSDPSize)
+	sendSDP := make(chan client.Message, cfg.App.SendSDPSize)
+	receiveSDP := make(chan client.ReplyMessage, cfg.App.ReceiveSDPSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -59,18 +58,23 @@ func Init(configPath string, userID string) (networking.NetworkingServ, context.
 		log.Info("stopping library...")
 		cancel()
 		networkingService.Disconnect()
-		signalingClient.Close(0, "close")
+		if err := signalingClient.Close(0, "close"); err != nil {
+			log.Error("failed to close siganling client", logger.Err(err))
+		}
 		log.Info("library stopped")
 	}
 }
 
 func Run() {
-	// if err := godotenv.Load("../../.env"); err != nil {
-	// 	panic(err)
-	// }
+	if err := godotenv.Load("../../.env"); err != nil {
+		panic(err)
+	}
 	// // if err := godotenv.Load(".env"); err != nil {
 	// // 	panic(err)
 	// // }
+	// if err := loadEnv(); err != nil {
+	// 	panic(err)
+	// }
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 

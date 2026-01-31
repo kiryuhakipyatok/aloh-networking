@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"networking/internal/client"
 	"networking/internal/domain/models"
-	"networking/internal/protocol"
 	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
@@ -78,7 +78,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, nil
 	default:
 	}
-	log.Info("creating new agent", ridLog)
+	log.Info("creating new session...", ridLog)
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
@@ -165,7 +165,7 @@ func (ns *networkingServ) receiveConnects() error {
 			return nil
 		default:
 		}
-		go func(sdp protocol.ReplyMessage) {
+		go func(sdp client.ReplyMessage) {
 			ctx, cancel := context.WithTimeout(ns.closeCtx, time.Second*5)
 			defer cancel()
 			senderId := sdp.Sender

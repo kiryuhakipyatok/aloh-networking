@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"networking/internal/domain/services/networking"
-	"networking/internal/protocol"
 	"networking/internal/utils"
 	"os"
 	"strings"
@@ -88,22 +87,25 @@ func (nh *NetworkingHandler) Connect(receiversIds []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(ridsLen*2))
 	defer cancel()
 	if err := nh.NetworkingServ.Сonnect(ctx, receiversIds); err != nil {
-		return protocol.ProcessError(err)
+		fmt.Printf("DEBUG: Error Type: %T, Error Value: %[1]v\n", err)
+		return processError(err)
 	}
 	return nil
 }
 
 func (nh *NetworkingHandler) Disconnect() error {
 	if err := nh.NetworkingServ.Disconnect(); err != nil {
-		return protocol.ProcessError(err)
+		return processError(err)
 	}
 	return nil
 }
 
 func (nh *NetworkingHandler) SendMessage(msg string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	data := utils.SetFirstByte(networking.CHAT, []byte(msg))
-	if err := nh.NetworkingServ.SendInStream(context.Background(), data); err != nil {
-		return protocol.ProcessError(err)
+	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
+		return processError(err)
 	}
 	return nil
 }
@@ -113,7 +115,7 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	defer cancel()
 	data = utils.SetFirstByte(networking.VOICE, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		return protocol.ProcessError(err)
+		return processError(err)
 	}
 	return nil
 }
@@ -123,7 +125,7 @@ func (nh *NetworkingHandler) SendVideo(data []byte) error {
 	defer cancel()
 	data = utils.SetFirstByte(networking.VIDEO, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		return protocol.ProcessError(err)
+		return processError(err)
 	}
 	return nil
 }

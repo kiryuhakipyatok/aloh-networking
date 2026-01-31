@@ -6,11 +6,12 @@ import (
 )
 
 var (
-	ErrNotFoundBase       = errors.New("not found")
-	ErrAlreadyExistsBase  = errors.New("already exists")
-	ErrRequestTimeoutBase = errors.New("request timeout")
-	ErrInvalidJsonBase    = errors.New("invalid json")
-	ErrValidationBase     = errors.New("valdiation error")
+	ErrNotFoundBase        = errors.New("not found")
+	ErrAlreadyExistsBase   = errors.New("already exists")
+	ErrRequestTimeoutBase  = errors.New("request timeout")
+	ErrInvalidJsonBase     = errors.New("invalid json")
+	ErrValidationBase      = errors.New("valdiation error")
+	ErrInternalServerError = errors.New("interanl error")
 )
 
 type AppError struct {
@@ -19,7 +20,7 @@ type AppError struct {
 }
 
 func (ae AppError) Error() string {
-	return fmt.Sprintf("%v", ae.Err.Error())
+	return ae.Err.Error()
 }
 
 func (ae AppError) Unwrap() error {
@@ -34,15 +35,15 @@ func NewAppError(op string, err error) AppError {
 }
 
 func ErrNotFound(op string) AppError {
-	return AppError{Op: op, Err: fmt.Errorf("%w", ErrNotFoundBase)}
+	return AppError{Op: op, Err: ErrNotFoundBase}
 }
 
 func ErrAlreadyExists(op string) AppError {
-	return AppError{Op: op, Err: fmt.Errorf("%w", ErrAlreadyExistsBase)}
+	return AppError{Op: op, Err: ErrAlreadyExistsBase}
 }
 
 func ErrRequestTimeout(op string) AppError {
-	return AppError{Op: op, Err: fmt.Errorf("%w", ErrRequestTimeoutBase)}
+	return AppError{Op: op, Err: ErrRequestTimeoutBase}
 }
 
 func ErrInvalidJson(op string, err error) AppError {
@@ -51,4 +52,8 @@ func ErrInvalidJson(op string, err error) AppError {
 
 func ErrValidation(op string, err error) AppError {
 	return AppError{Op: op, Err: fmt.Errorf("%w : %w", ErrValidationBase, err)}
+}
+
+func ErrInternal(op string) AppError {
+	return AppError{Op: op, Err: ErrInternalServerError}
 }

@@ -20,6 +20,7 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/cgo"
 	"strings"
@@ -72,7 +73,7 @@ func getWrapper(h C.handler) *Wrapper {
 }
 
 //export Connect
-func Connect(h C.handler, idsStr *C.cchar_t) *C.cchar_t {
+func Connect(h C.handler, idsStr *C.cchar_t) C.uint {
 	wr := getWrapper(h)
 
 	goIdsStr := C.GoString((*C.char)(idsStr))
@@ -80,49 +81,49 @@ func Connect(h C.handler, idsStr *C.cchar_t) *C.cchar_t {
 	receivers := strings.Split(goIdsStr, ",")
 	fmt.Println("receivers:", receivers)
 	if err := wr.Handler.Connect(receivers); err != nil {
-		return C.CString(err.Error())
+		return proccessError(err)
 	}
-	return nil
+	return C.uint(handlers.SUCCESS)
 }
 
 //export Disconnect
-func Disconnect(h C.handler) *C.cchar_t {
+func Disconnect(h C.handler) C.uint {
 	wr := getWrapper(h)
 	if err := wr.Handler.Disconnect(); err != nil {
-		return C.CString(err.Error())
+		return proccessError(err)
 	}
-	return nil
+	return C.uint(handlers.SUCCESS)
 }
 
 //export SendMessage
-func SendMessage(h C.handler, msg *C.cchar_t) *C.cchar_t {
+func SendMessage(h C.handler, msg *C.cchar_t) C.uint {
 	wr := getWrapper(h)
 	goMsg := C.GoString((*C.char)(msg))
 
 	if err := wr.Handler.SendMessage(goMsg); err != nil {
-		return C.CString(err.Error())
+		return proccessError(err)
 	}
-	return nil
+	return C.uint(handlers.SUCCESS)
 }
 
 //export SendVoice
-func SendVoice(h C.handler, data unsafe.Pointer, length C.int) *C.cchar_t {
+func SendVoice(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 	wr := getWrapper(h)
 	goData := C.GoBytes(data, length)
 	if err := wr.Handler.SendVoice(goData); err != nil {
-		return C.CString(err.Error())
+		return proccessError(err)
 	}
-	return nil
+	return C.uint(handlers.SUCCESS)
 }
 
 //export SendVideo
-func SendVideo(h C.handler, data unsafe.Pointer, length C.int) *C.cchar_t {
+func SendVideo(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 	wr := getWrapper(h)
 	goData := C.GoBytes(data, length)
 	if err := wr.Handler.SendVideo(goData); err != nil {
-		return C.CString(err.Error())
+		return proccessError(err)
 	}
-	return nil
+	return C.uint(handlers.SUCCESS)
 }
 
 //export RegisterOnChat
@@ -158,6 +159,17 @@ func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 		}
 		C.call_callback(cb, unsafe.Pointer(&data[0]), C.int(len(data)))
 	})
+}
+
+func proccessError(err error) C.uint {
+	var (
+		ae   handlers.ErrorCode
+		code uint = handlers.INTERNAL_ERROR
+	)
+	if errors.As(err, &ae) {
+		code = ae.Code
+	}
+	return C.uint(code)
 }
 
 func main() {}
