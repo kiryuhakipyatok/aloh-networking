@@ -100,16 +100,16 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern handler NewHandler(cchar_t* userID, cchar_t* configPath);
-extern void DeleteHandler(handler h);
-extern cchar_t* Connect(handler h, cchar_t* idsStr);
-extern cchar_t* Disconnect(handler h);
-extern cchar_t* SendMessage(handler h, cchar_t* msg);
-extern cchar_t* SendVoice(handler h, void* data, int length);
-extern cchar_t* SendVideo(handler h, void* data, int length);
-extern void RegisterOnChat(handler h, DataCallback cb);
-extern void RegisterOnVoice(handler h, DataCallback cb);
-extern void RegisterOnVideo(handler h, DataCallback cb);
+extern __declspec(dllexport) handler NewHandler(cchar_t* userID, cchar_t* configPath);
+extern __declspec(dllexport) void DeleteHandler(handler h);
+extern __declspec(dllexport) cchar_t* Connect(handler h, cchar_t* idsStr);
+extern __declspec(dllexport) cchar_t* Disconnect(handler h);
+extern __declspec(dllexport) cchar_t* SendMessage(handler h, cchar_t* msg);
+extern __declspec(dllexport) cchar_t* SendVoice(handler h, void* data, int length);
+extern __declspec(dllexport) cchar_t* SendVideo(handler h, void* data, int length);
+extern __declspec(dllexport) void RegisterOnChat(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVoice(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVideo(handler h, DataCallback cb);
 
 #ifdef __cplusplus
 }
