@@ -86,7 +86,7 @@ func (nh *NetworkingHandler) Connect(receiversIds []string) error {
 	ridsLen := len(receiversIds)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(ridsLen*2))
 	defer cancel()
-	if err := nh.NetworkingServ.Сonnect(ctx, receiversIds); err != nil {
+	if err := nh.NetworkingServ.Connect(ctx, receiversIds); err != nil {
 		fmt.Printf("DEBUG: Error Type: %T, Error Value: %[1]v\n", err)
 		return processError(err)
 	}

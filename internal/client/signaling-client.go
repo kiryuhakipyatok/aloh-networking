@@ -282,7 +282,7 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	case <-ctx.Done():
 		return errs.ErrRequestTimeout(op)
 	case <-sc.closeCtx.Done():
-		return nil
+		return errs.AppClosing(op)
 	}
 
 	log.Info("sdp created successfully")

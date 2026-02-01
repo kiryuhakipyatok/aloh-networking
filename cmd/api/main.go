@@ -21,7 +21,6 @@ import "C"
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime/cgo"
 	"strings"
 	"unsafe"
@@ -75,11 +74,8 @@ func getWrapper(h C.handler) *Wrapper {
 //export Connect
 func Connect(h C.handler, idsStr *C.cchar_t) C.uint {
 	wr := getWrapper(h)
-
 	goIdsStr := C.GoString((*C.char)(idsStr))
-	fmt.Println("goIdsStr:", goIdsStr)
 	receivers := strings.Split(goIdsStr, ",")
-	fmt.Println("receivers:", receivers)
 	if err := wr.Handler.Connect(receivers); err != nil {
 		return proccessError(err)
 	}

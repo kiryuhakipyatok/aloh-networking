@@ -20,8 +20,8 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) proccessData(data []byte) {
-	op := "networkingServ.proccessData"
+func (ns *networkingServ) processData(data []byte) {
+	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	switch data[0] {
 	case CHAT:
@@ -41,7 +41,7 @@ func (ns *networkingServ) proccessData(data []byte) {
 		}
 	default:
 		err := errors.New("ivalid type")
-		log.Error("failed to proccess data", logger.Err(err))
+		log.Error("failed to process data", logger.Err(err))
 	}
 }
 
@@ -75,7 +75,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	ridLog := logger.Attr("receiverId", rid)
 	select {
 	case <-ns.closeCtx.Done():
-		return nil, nil
+		return nil, errs.AppClosing(op)
 	default:
 	}
 	log.Info("creating new session...", ridLog)
@@ -133,7 +133,6 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
-		session.State = c.String()
 		if c.String() == CLOSED || c.String() == DISCONNECTED || c.String() == FAILED {
 			ns.disconnectSession(session)
 		}
@@ -162,10 +161,13 @@ func (ns *networkingServ) receiveConnects() error {
 	for sdp := range ns.receiveSDPs {
 		select {
 		case <-ns.closeCtx.Done():
-			return nil
+			return errs.AppClosing(op)
 		default:
 		}
 		go func(sdp client.ReplyMessage) {
+			if len(sdp.Payload) < 2 {
+				return
+			}
 			ctx, cancel := context.WithTimeout(ns.closeCtx, time.Second*5)
 			defer cancel()
 			senderId := sdp.Sender
@@ -187,6 +189,9 @@ func (ns *networkingServ) receiveConnects() error {
 			case CREDS:
 				log.Info("credentials processing", senderIdLog)
 				creds := strings.Split(string(sdp.Payload[1:]), " ")
+				if len(creds) < 2 {
+					return
+				}
 				remoteUrfrag := creds[0]
 				remotePwd := creds[1]
 				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
@@ -225,7 +230,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 	userLog := logger.Attr("userId", id)
 	select {
 	case <-ns.closeCtx.Done():
-		return nil, nil
+		return nil, errs.AppClosing(op)
 	default:
 	}
 	log.Info("session getting...", userLog)
@@ -262,7 +267,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	select {
 	case <-session.CredsChan:
 	case <-ns.closeCtx.Done():
-		return nil
+		return errs.AppClosing(op)
 	}
 	log.Info("connection establishing...", userIdLog)
 
@@ -330,6 +335,11 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 			log.Error("failed to start listen quic connections", logger.Err(err), userIdLog)
 			return errs.NewAppError(op, err)
 		}
+		defer func() {
+			if err := listener.Close(); err != nil {
+				log.Error("failed to close quic listener", logger.Err(err), userIdLog)
+			}
+		}()
 		quicConn, err = listener.Accept(ctx)
 		if err != nil {
 			log.Error("failed to accept quic connection", logger.Err(err), userIdLog)
@@ -350,36 +360,40 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
 	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
 	log.Info("connection handling...", connLog...)
-
+	defer func() {
+		ns.disconnectSession(session)
+		log.Info("connection handling stopped")
+	}()
 	buf := make([]byte, 512)
 	go func() {
-		for session.State == CONNECTED {
+		for {
 			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 			if err != nil {
 				if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+					ns.disconnectSession(session)
 					return
 				}
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
-			ns.proccessData(data)
+			ns.processData(data)
 		}
 	}()
-	for session.State == CONNECTED {
+	for {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
 				return
 			}
 			log.Error("failed to accept uni stream", logger.Err(err), remoteAddrLog, localAddrLog)
-			continue
+			return
 		}
 		n, err := stream.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
 			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			continue
 		}
-		ns.proccessData(buf[:n])
+		ns.processData(buf[:n])
 		stream.CancelRead(0)
 		clear(buf)
 	}

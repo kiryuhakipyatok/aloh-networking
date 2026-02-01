@@ -13,7 +13,6 @@ signaling:
   keepAlivePeriodTimeout: 10s
   closeTimeout: 10s
   startTimeout: 10s
-  certsPath: "../etc/certs"
   nextProtos: ["aloh-proto"]
   maxIncomingStreams: 100
   regTimeout: 10s

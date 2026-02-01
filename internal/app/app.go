@@ -59,8 +59,10 @@ func Init(configPath string, userID string) (networking.NetworkingServ, context.
 		cancel()
 		networkingService.Disconnect()
 		if err := signalingClient.Close(0, "close"); err != nil {
-			log.Error("failed to close siganling client", logger.Err(err))
+			log.Error("failed to close signaling client", logger.Err(err))
 		}
+		close(sendSDP)
+		close(receiveSDP)
 		log.Info("library stopped")
 	}
 }

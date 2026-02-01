@@ -51,7 +51,7 @@ func (ag *sessionRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (ag *sessionRepository) Get(ctx context.Context, id string) (*models.Session, error) {
-	op := "sessionRepository.Delete"
+	op := "sessionRepository.Get"
 	select {
 	case <-ctx.Done():
 		return nil, errs.ErrRequestTimeout(op)

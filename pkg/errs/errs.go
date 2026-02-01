@@ -6,12 +6,13 @@ import (
 )
 
 var (
-	ErrNotFoundBase        = errors.New("not found")
-	ErrAlreadyExistsBase   = errors.New("already exists")
-	ErrRequestTimeoutBase  = errors.New("request timeout")
-	ErrInvalidJsonBase     = errors.New("invalid json")
-	ErrValidationBase      = errors.New("valdiation error")
-	ErrInternalServerError = errors.New("interanl error")
+	ErrNotFoundBase            = errors.New("not found")
+	ErrAlreadyExistsBase       = errors.New("already exists")
+	ErrRequestTimeoutBase      = errors.New("request timeout")
+	ErrInvalidJsonBase         = errors.New("invalid json")
+	ErrValidationBase          = errors.New("valdiation error")
+	ErrInternalServerErrorBase = errors.New("interanl error")
+	AppClosingBase             = errors.New("app closing")
 )
 
 type AppError struct {
@@ -55,5 +56,9 @@ func ErrValidation(op string, err error) AppError {
 }
 
 func ErrInternal(op string) AppError {
-	return AppError{Op: op, Err: ErrInternalServerError}
+	return AppError{Op: op, Err: ErrInternalServerErrorBase}
+}
+
+func AppClosing(op string) AppError {
+	return AppError{Op: op, Err: AppClosingBase}
 }

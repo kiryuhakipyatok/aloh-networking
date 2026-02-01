@@ -12,7 +12,6 @@ type Session struct {
 	Agent       *ice.Agent
 	Conn        *quic.Conn
 	IsInitiator bool
-	State       string
 	CredsChan   chan struct{}
 	Closing     sync.Once
 }

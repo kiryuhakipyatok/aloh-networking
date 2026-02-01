@@ -33,7 +33,7 @@ const (
 )
 
 type NetworkingServ interface {
-	Сonnect(ctx context.Context, rids []string) error
+	Connect(ctx context.Context, rids []string) error
 	Disconnect() error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
@@ -77,7 +77,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	return ns
 }
 
-func (ns *networkingServ) Сonnect(ctx context.Context, rids []string) error {
+func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
 	op := "networkingServ.Сonnect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
@@ -138,9 +138,7 @@ func (ns *networkingServ) Disconnect() error {
 		return nil
 	}
 	for _, session := range sessions {
-		wg.Add(1)
 		wg.Go(func() {
-			defer wg.Done()
 			ns.disconnectSession(session)
 		})
 	}
@@ -164,35 +162,34 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
-		go func(s *models.Session) {
-			gctx, cancel := context.WithTimeout(context.Background(), ns.cfg.SendInStreamTimeout)
-			defer cancel()
-			userIdLog := logger.Attr("userId", s.UserID)
-			if s.State == CONNECTED {
-				stream, err := s.Conn.OpenUniStreamSync(gctx)
-				if err != nil {
-					log.Error("failed to open uni stream", logger.Err(err), userIdLog)
+		if s.Conn != nil {
+			go func(s *models.Session) {
+				gctx, cancel := context.WithTimeout(context.Background(), ns.cfg.SendInStreamTimeout)
+				defer cancel()
+				userIdLog := logger.Attr("userId", s.UserID)
+				{
+					stream, err := s.Conn.OpenUniStreamSync(gctx)
+					if err != nil {
+						log.Error("failed to open uni stream", logger.Err(err), userIdLog)
 
-					return
-				}
-				if _, err := stream.Write(data); err != nil {
-					log.Error("failed to write msg in stream", logger.Err(err), userIdLog)
-					return
-				}
-				if err := stream.Close(); err != nil {
-
-					if cerr := utils.CheckErr(gctx, err); cerr == nil {
 						return
-
 					}
-					log.Error("failed to close uni stream", logger.Err(err), userIdLog)
-					return
-				}
-			} else {
-				log.Info("user are not connected", userIdLog)
-			}
-		}(s)
+					if _, err := stream.Write(data); err != nil {
+						log.Error("failed to write msg in stream", logger.Err(err), userIdLog)
+						return
+					}
+					if err := stream.Close(); err != nil {
 
+						if cerr := utils.CheckErr(gctx, err); cerr == nil {
+							return
+
+						}
+						log.Error("failed to close uni stream", logger.Err(err), userIdLog)
+						return
+					}
+				}
+			}(s)
+		}
 	}
 	log.Info("message sended")
 	return nil
@@ -214,20 +211,18 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
-		go func(s *models.Session) {
+		if s.Conn != nil {
+			go func(s *models.Session) {
 
-			userIdLog := logger.Attr("userId", s.UserID)
-			if s.State == CONNECTED {
+				userIdLog := logger.Attr("userId", s.UserID)
+
 				if err := s.Conn.SendDatagram(data); err != nil {
 					log.Info("failed to send datagram", logger.Err(err), userIdLog)
 					return
 				}
-			} else {
-				log.Info("user are not connected", userIdLog)
-			}
 
-		}(s)
-
+			}(s)
+		}
 	}
 	log.Info("datagram sended")
 	return nil
