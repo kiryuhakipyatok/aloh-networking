@@ -191,7 +191,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 			}(s)
 		}
 	}
-	log.Info("message sended")
+	log.Info("message sent")
 	return nil
 
 }
@@ -224,7 +224,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 			}(s)
 		}
 	}
-	log.Info("datagram sended")
+	log.Info("datagram sent")
 	return nil
 
 }

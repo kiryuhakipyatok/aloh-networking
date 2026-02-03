@@ -34,11 +34,11 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(configPath string, userID string) (networking.NetworkingServ, context.CancelFunc) {
+func Init(configPath, configName, userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
-	cfg := config.NewConfig(configPath)
+	cfg := config.NewConfig(configPath, configName)
 	log := logger.NewLogger(cfg.App)
 	log.Info("initializing library...")
 
@@ -64,7 +64,7 @@ func Init(configPath string, userID string) (networking.NetworkingServ, context.
 		close(sendSDP)
 		close(receiveSDP)
 		log.Info("library stopped")
-	}
+	}, cfg.Handler
 }
 
 func Run() {
@@ -80,11 +80,12 @@ func Run() {
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
-	path := os.Getenv("CONFIG_PATH")
+	configPath := os.Getenv("CONFIG_PATH")
+	configName := os.Getenv("CONFIG_NAME")
 
-	networkingServ, close := Init(path, *id)
+	networkingServ, close, handlerCfg := Init(configPath, configName, *id)
 
-	networkingHandler := handlers.NewNetworkingHandler(networkingServ)
+	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
 	go networkingHandler.Start()
 

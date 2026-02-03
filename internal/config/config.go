@@ -14,6 +14,7 @@ type Config struct {
 	App        App        `mapstructure:"app"`
 	Signaling  Signaling  `mapstructure:"signaling"`
 	Networking Networking `mapstructure:"networking"`
+	Handler    Handler    `mapstructure:"handler"`
 }
 
 type App struct {
@@ -53,11 +54,18 @@ type Networking struct {
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 }
 
-func NewConfig(path string) *Config {
-	if path == "" {
-		panic(fmt.Errorf("config path is empty"))
+type Handler struct {
+	SendVideoTimeout time.Duration `mapstructure:"sendVideoTimeout"`
+	SendChatTimeout  time.Duration `mapstructure:"sendChatTimeout"`
+	SendVoiceTimeout time.Duration `mapstructure:"sendVoiceTimeout"`
+	ConnectTimeout   time.Duration `mapstructure:"connectTimeout"`
+}
+
+func NewConfig(path, name string) *Config {
+	if path == "" || name == "" {
+		panic(fmt.Errorf("config path or name is empty"))
 	}
-	filename := filepath.Join(path, "config.yaml")
+	filename := filepath.Join(path, name)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		panic(fmt.Errorf("failed to read config file: %w", err))

@@ -6,20 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"networking/internal/config"
 	"networking/internal/domain/services/networking"
 	"networking/internal/utils"
 	"os"
 	"strings"
-	"time"
 )
 
 type NetworkingHandler struct {
 	NetworkingServ networking.NetworkingServ
+	Cfg            config.Handler
 }
 
-func NewNetworkingHandler(ns networking.NetworkingServ) *NetworkingHandler {
+func NewNetworkingHandler(ns networking.NetworkingServ, cfg config.Handler) *NetworkingHandler {
 	nh := &NetworkingHandler{
 		NetworkingServ: ns,
+		Cfg:            cfg,
 	}
 	return nh
 }
@@ -83,11 +85,9 @@ func (nh *NetworkingHandler) Start() {
 }
 
 func (nh *NetworkingHandler) Connect(receiversIds []string) error {
-	ridsLen := len(receiversIds)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(ridsLen*2))
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
 	defer cancel()
 	if err := nh.NetworkingServ.Connect(ctx, receiversIds); err != nil {
-		fmt.Printf("DEBUG: Error Type: %T, Error Value: %[1]v\n", err)
 		return processError(err)
 	}
 	return nil
@@ -101,7 +101,7 @@ func (nh *NetworkingHandler) Disconnect() error {
 }
 
 func (nh *NetworkingHandler) SendMessage(msg string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
 	defer cancel()
 	data := utils.SetFirstByte(networking.CHAT, []byte(msg))
 	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
@@ -111,7 +111,7 @@ func (nh *NetworkingHandler) SendMessage(msg string) error {
 }
 
 func (nh *NetworkingHandler) SendVoice(data []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVoiceTimeout)
 	defer cancel()
 	data = utils.SetFirstByte(networking.VOICE, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
@@ -121,7 +121,7 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 }
 
 func (nh *NetworkingHandler) SendVideo(data []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVideoTimeout)
 	defer cancel()
 	data = utils.SetFirstByte(networking.VIDEO, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {

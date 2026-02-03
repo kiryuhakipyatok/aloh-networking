@@ -30,3 +30,9 @@ networking:
   turnPassword: "${TURN_PASSWORD}"
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
+
+handler:
+  sendChatTimeout: 10s
+  sendVideoTimeout: 10s
+  sendVoiceTimeout: 10s
+  connectTimeout: 10s
