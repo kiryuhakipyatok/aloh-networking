@@ -45,7 +45,7 @@ func (nh *NetworkingHandler) Start() {
 			m = strings.TrimSpace(m)
 			strs := strings.Split(m, " ")
 			if err := nh.Connect(strs); err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 			}
 		case "sendMsg":
 			m, err := reader.ReadString('\n')
@@ -54,7 +54,7 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			if err := nh.SendMessage(m); err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 			}
 		case "sendVoice":
 			m, err := reader.ReadString('\n')
@@ -72,11 +72,18 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			if err := nh.SendVideo([]byte(m)); err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 			}
 		case "disconnect":
-			if err := nh.NetworkingServ.Disconnect(); err != nil {
+			if err := nh.Disconnect(); err != nil {
 				fmt.Println(err.Error())
+			}
+		case "online":
+			online, err := nh.FetchOnline()
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println(online)
 			}
 		default:
 			fmt.Println("sosi")
@@ -140,4 +147,14 @@ func (nh *NetworkingHandler) OnVideo(f func(data []byte)) {
 
 func (nh *NetworkingHandler) OnVoice(f func(data []byte)) {
 	nh.NetworkingServ.SaveVoiceHandler(f)
+}
+
+func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
+	defer cancel()
+	online, err := nh.NetworkingServ.FetchOnline(ctx)
+	if err != nil {
+		return nil, processError(err)
+	}
+	return online, nil
 }

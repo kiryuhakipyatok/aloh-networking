@@ -6,7 +6,16 @@ import (
 )
 
 const (
+	REG_TYPE = iota
+	STREAM_TYPE
+	DATAGRAM_TYPE
+	DISCONN_TYPE
+	GET_ONLINE_TYPE
+)
+
+const (
 	SUCCESS = iota
+	PAYLOAD_SUCCESS
 	INVALID_PROTOCOL
 	STREAM_ERROR
 	INTERNAL_ERROR
@@ -37,8 +46,9 @@ type ReplyMessage struct {
 }
 
 type ResponseMessage struct {
-	Code      uint   `json:"code"`
-	MessageId string `json:"msgId"`
+	Code      *uint           `json:"code"`
+	MessageId string          `json:"msgId"`
+	Payload   json.RawMessage `json:"payload"`
 }
 
 func ToRegisterConnectMessage(data json.RawMessage) (*RegisterConnectMessage, error) {

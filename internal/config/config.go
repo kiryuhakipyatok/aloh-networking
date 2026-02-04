@@ -55,10 +55,11 @@ type Networking struct {
 }
 
 type Handler struct {
-	SendVideoTimeout time.Duration `mapstructure:"sendVideoTimeout"`
-	SendChatTimeout  time.Duration `mapstructure:"sendChatTimeout"`
-	SendVoiceTimeout time.Duration `mapstructure:"sendVoiceTimeout"`
-	ConnectTimeout   time.Duration `mapstructure:"connectTimeout"`
+	SendVideoTimeout   time.Duration `mapstructure:"sendVideoTimeout"`
+	SendChatTimeout    time.Duration `mapstructure:"sendChatTimeout"`
+	SendVoiceTimeout   time.Duration `mapstructure:"sendVoiceTimeout"`
+	ConnectTimeout     time.Duration `mapstructure:"connectTimeout"`
+	FetchOnlineTimeout time.Duration `mapstructure:"fetchOnlineTimeout"`
 }
 
 func NewConfig(path, name string) *Config {

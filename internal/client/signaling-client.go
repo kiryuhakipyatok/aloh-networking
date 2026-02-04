@@ -19,6 +19,7 @@ import (
 type SignalingClient interface {
 	Close(code uint, desc string) error
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
+	GetOnline(ctx context.Context) ([]byte, error)
 }
 
 type signalingClient struct {
@@ -26,14 +27,14 @@ type signalingClient struct {
 	ctrlStream       *quic.Stream
 	decoder          *json.Decoder
 	encoder          *json.Encoder
-	sendSDPs         chan Message
+	sendMsgs         chan Message
 	receiveSDPs      chan ReplyMessage
 	logger           *logger.Logger
 	closeCtx         context.Context
 	pendingResponses sync.Map
 }
 
-func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSDPs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
+func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -54,7 +55,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 	}
 	sc := &signalingClient{
 		conn:        conn,
-		sendSDPs:    sendSDPs,
+		sendMsgs:    sendMsgs,
 		receiveSDPs: receiveSDPs,
 		logger:      l,
 		closeCtx:    ctx,
@@ -65,7 +66,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendSD
 		fmt.Println(err)
 		panic(fmt.Errorf("failed to register connect: %w", err))
 	}
-	go sc.sendSDP()
+	go sc.sendMsg()
 	go sc.receiveSDP()
 	go sc.receiveResponses()
 	return sc
@@ -119,7 +120,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 	}
 	msg := Message{
 		Id:   uuid.NewString(),
-		Type: utils.Uint8ToPtr(0),
+		Type: utils.Uint8ToPtr(REG_TYPE),
 		Data: json.RawMessage(dataReg),
 	}
 	if err := encoder.Encode(msg); err != nil {
@@ -132,12 +133,12 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
-	switch responseMsg.Code {
-	case 0:
+	switch *responseMsg.Code {
+	case SUCCESS:
 		log.Info("connect registered successfully", idLog)
 		return nil
 	default:
-		err := codeToError(op, responseMsg.Code)
+		err := codeToError(op, *responseMsg.Code)
 		log.Error("failed to register connect", idLog, logger.Err(err))
 		return err
 	}
@@ -164,41 +165,43 @@ func (sc *signalingClient) receiveResponses() {
 			continue
 		}
 
-		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", responseMsg.Code))
+		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", *responseMsg.Code))
 		log.Info("new response message from signaling", respLog...)
 		resChanInt, ok := sc.pendingResponses.Load(responseMsg.MessageId)
 		if ok {
-			reqChan, _ := resChanInt.(chan uint)
-			switch responseMsg.Code {
-			case SUCCESS:
-				reqChan <- SUCCESS
-			default:
-				reqChan <- responseMsg.Code
-			}
+			// switch responseMsg.Code {
+			// case SUCCESS:
+			// 	reqChan, _ := resChanInt.(chan uint)
+			// 	reqChan <- responseMsg.Code
+			// case PAYLOAD_SUCCESS:
+			reqChan, _ := resChanInt.(chan ResponseMessage)
+			reqChan <- responseMsg
+			// }
+
 		}
 	}
 }
 
-func (sc *signalingClient) sendSDP() {
+func (sc *signalingClient) sendMsg() {
 	var (
-		op  = "signalingClient.sendSDP"
+		op  = "signalingClient.sendMsg"
 		log = sc.logger.AddOp(op)
 	)
 
-	for sdp := range sc.sendSDPs {
+	for msg := range sc.sendMsgs {
 		select {
 		case <-sc.closeCtx.Done():
 			return
 		default:
 		}
-		msgIdLog := logger.Attr("msgId", sdp.Id)
-		if err := sc.encoder.Encode(sdp); err != nil {
+		msgIdLog := logger.Attr("msgId", msg.Id)
+		if err := sc.encoder.Encode(msg); err != nil {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
-			log.Error("failed to send sdp to signaling", logger.Err(err), msgIdLog)
+			log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
 		} else {
-			log.Info("sdp sended successfully", msgIdLog)
+			log.Info("msg sended successfully", msgIdLog)
 		}
 	}
 
@@ -206,7 +209,7 @@ func (sc *signalingClient) sendSDP() {
 
 func (sc *signalingClient) receiveSDP() {
 	var (
-		op  = "signalingClient.sendSDP"
+		op  = "signalingClient.receiveSDP"
 		log = sc.logger.AddOp(op)
 	)
 
@@ -266,11 +269,11 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	defer sc.pendingResponses.Delete(msgId)
 	msg := Message{
 		Id:   msgId,
-		Type: utils.Uint8ToPtr(1),
+		Type: utils.Uint8ToPtr(STREAM_TYPE),
 		Data: sendData,
 	}
 	select {
-	case sc.sendSDPs <- msg:
+	case sc.sendMsgs <- msg:
 	case <-ctx.Done():
 		return errs.ErrRequestTimeout(op)
 	}
@@ -288,6 +291,43 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	log.Info("sdp created successfully")
 	return nil
 
+}
+
+func (sc *signalingClient) GetOnline(ctx context.Context) ([]byte, error) {
+	var (
+		op  = "signalingClient.GetOnline"
+		log = sc.logger.AddOp(op)
+	)
+	log.Info("fetching online from signaling...")
+	msgId := uuid.NewString()
+	respChan := make(chan ResponseMessage, 1)
+	sc.pendingResponses.Store(msgId, respChan)
+	defer sc.pendingResponses.Delete(msgId)
+	msg := Message{
+		Id:   msgId,
+		Type: utils.Uint8ToPtr(GET_ONLINE_TYPE),
+		Data: nil,
+	}
+	select {
+	case sc.sendMsgs <- msg:
+	case <-ctx.Done():
+		return nil, errs.ErrRequestTimeout(op)
+	}
+	onlineIds := []byte{}
+	select {
+	case respMsg := <-respChan:
+		if *respMsg.Code != PAYLOAD_SUCCESS {
+			return nil, codeToError(op, *respMsg.Code)
+		}
+		onlineIds = respMsg.Payload
+	case <-ctx.Done():
+		return nil, errs.ErrRequestTimeout(op)
+	case <-sc.closeCtx.Done():
+		return nil, errs.AppClosing(op)
+	}
+
+	log.Info("online fetched from signaling")
+	return onlineIds, nil
 }
 
 func codeToError(op string, code uint) error {

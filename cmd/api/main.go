@@ -161,6 +161,17 @@ func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 	})
 }
 
+//export FetchOnline
+func FetchOnline(h C.handler) (*C.cchar_t, C.uint) {
+	wr := getWrapper(h)
+	online, err := wr.Handler.FetchOnline()
+	if err != nil {
+		return C.CString(""), proccessError(err)
+	}
+	strOnline := strings.Join(online, ",")
+	return C.CString(strOnline), C.uint(handlers.SUCCESS)
+}
+
 func proccessError(err error) C.uint {
 	var (
 		ae   handlers.ErrorCode

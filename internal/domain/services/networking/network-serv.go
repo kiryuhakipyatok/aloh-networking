@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"networking/internal/client"
 	"networking/internal/config"
@@ -40,6 +41,7 @@ type NetworkingServ interface {
 	SaveChatHandler(h handler)
 	SaveVoiceHandler(h handler)
 	SaveVideoHandler(h handler)
+	FetchOnline(ctx context.Context) ([]string, error)
 }
 
 type networkingServ struct {
@@ -226,5 +228,24 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	}
 	log.Info("datagram sent")
 	return nil
+
+}
+
+func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
+	op := "networkingServ.FetchOnline"
+	log := ns.logger.AddOp(op)
+	log.Info("online fetching...")
+	onlineIdsByte, err := ns.signalingClient.GetOnline(ctx)
+	if err != nil {
+		log.Error("failed to fetch online", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	var onlineIds []string
+	if err := json.Unmarshal(onlineIdsByte, &onlineIds); err != nil {
+		log.Error("failed to unmarshal online", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	log.Info("online fetched successfully")
+	return onlineIds, nil
 
 }
