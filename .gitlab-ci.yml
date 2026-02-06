@@ -31,5 +31,5 @@ deploy-job:
       EOF
     - docker-compose rm -s -f aloh-networking-clients || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate aloh-networking-clients
-    - sleep 5
+    - sleep 10
     - docker-compose logs aloh-networking-clients
