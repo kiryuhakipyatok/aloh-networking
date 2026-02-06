@@ -68,15 +68,15 @@ func Init(configPath, configName, userID string) (networking.NetworkingServ, con
 }
 
 func Run() {
-	if err := godotenv.Load("../../.env"); err != nil {
-		panic(err)
-	}
+	// if err := godotenv.Load("../../.env"); err != nil {
+	// 	panic(err)
+	// }
 	// // if err := godotenv.Load(".env"); err != nil {
 	// // 	panic(err)
 	// // }
-	// if err := loadEnv(); err != nil {
-	// 	panic(err)
-	// }
+	if err := loadEnv(); err != nil {
+		panic(err)
+	}
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
