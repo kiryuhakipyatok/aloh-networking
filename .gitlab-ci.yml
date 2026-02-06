@@ -33,4 +33,4 @@ deploy-job:
     - docker-compose rm -s -f docker-compose.yaml || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate
     - sleep 10
-    - docker-compose logs aloh-networking-clients
+    - docker-compose logs user-000
