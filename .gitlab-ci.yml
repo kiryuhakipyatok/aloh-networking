@@ -30,6 +30,7 @@ deploy-job:
       TURN_USERNAME=$TURN_USERNAME
       TURN_PASSWORD=$TURN_PASSWORD
       EOF
+    - cat .env
     - docker-compose -f docker-compose.yaml down --remove-orphans || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate
     - sleep 10
