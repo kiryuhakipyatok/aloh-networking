@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY --from=builder /usr/local/src/bin/app .
 
-COPY configs ./configs
+COPY configs /configs
 
 ENTRYPOINT ["./app"]
 
