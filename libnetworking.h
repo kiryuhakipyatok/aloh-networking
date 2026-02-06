@@ -114,7 +114,8 @@ extern void RegisterOnVideo(handler h, DataCallback cb);
 /* Return type for FetchOnline */
 struct FetchOnline_return {
 	cchar_t* r0;
-	unsigned int r1;
+	int r1;
+	unsigned int r2;
 };
 extern struct FetchOnline_return FetchOnline(handler h);
 
