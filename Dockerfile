@@ -20,4 +20,4 @@ COPY configs /configs
 
 ENTRYPOINT ["./app"]
 
-CMD ["-id=123"]
+CMD ["-id=000"]

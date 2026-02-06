@@ -1,0 +1,35 @@
+stages:
+  - build
+  - test
+  - deploy
+
+build-job:
+  stage: build
+  script:
+    - docker build -t aloh-networking-image .
+
+test-job:
+  stage: test
+  script:
+    - echo "testing..."
+    - sleep 10s
+
+deploy-job:
+  stage: deploy 
+  script:
+      cat > .env << EOF
+      CONFIG_PATH=$CONFIG_PATH
+      CONFIG_NAME=$CONFIG_NAME
+      SIGNALING_ADDRESS=$SIGNALING_ADDRESS
+      SIGNALING_PORT=$SIGNALING_PORT
+      STUN_HOST=$STUN_HOST
+      STUN_PORT=$STUN_PORT
+      TURN_HOST=$TURN_HOST
+      TURN_PORT=$TURN_PORT
+      TURN_USERNAME=$TURN_USERNAME
+      TURN_PASSWORD=$TURN_PASSWORD
+      EOF
+    - docker-compose rm -s -f aloh-networking-clients || true
+    - docker-compose -f docker-compose.yaml up -d --force-recreate aloh-networking-clients
+    - sleep 5
+    - docker-compose logs aloh-networking-clients

@@ -1,15 +1,71 @@
 services:
-  user-123:
+  user-111:
     build: .
     env_file:
       - .env
-    command: ["-id=123"]
+    command: ["-id=111"]
     stdin_open: true
     tty: true
-  user-456:
+  user-222:
     build: .
     env_file:
       - .env
-    command: ["-id=456"]
+    command: ["-id=222"]
+    stdin_open: true
+    tty: true
+  user-333:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=333"]
+    stdin_open: true
+    tty: true
+  user-444:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=444"]
+    stdin_open: true
+    tty: true
+  user-555:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=555"]
+    stdin_open: true
+    tty: true
+  user-666:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=666"]
+    stdin_open: true
+    tty: true
+  user-777:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=777"]
+    stdin_open: true
+    tty: true
+  user-888:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=888"]
+    stdin_open: true
+    tty: true
+  user-999:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=999"]
+    stdin_open: true
+    tty: true
+  user-000:
+    build: .
+    env_file:
+      - .env
+    command: ["-id=000"]
     stdin_open: true
     tty: true

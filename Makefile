@@ -11,8 +11,8 @@ build:
 run:
 	@go run cmd/app/main.go
 
-docker-run-app-123:
-	@docker compose -f docker-compose.yaml up -d user-123 --build
+docker-run-app:
+	@docker compose -f docker-compose.yaml up -d --build
 
 docker-run-app-456:
 	@docker compose -f docker-compose.yaml up -d user-456 --build
