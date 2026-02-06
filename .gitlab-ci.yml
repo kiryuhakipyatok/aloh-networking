@@ -30,7 +30,7 @@ deploy-job:
       TURN_USERNAME=$TURN_USERNAME
       TURN_PASSWORD=$TURN_PASSWORD
       EOF
-    - docker-compose rm -s -f aloh-networking-clients || true
-    - docker-compose -f docker-compose.yaml up -d --force-recreate aloh-networking-clients
+    - docker-compose rm -s -f docker-compose.yaml || true
+    - docker-compose -f docker-compose.yaml up -d --force-recreate
     - sleep 10
     - docker-compose logs aloh-networking-clients
