@@ -162,16 +162,22 @@ func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 }
 
 //export FetchOnline
-func FetchOnline(h C.handler) (*C.cchar_t, C.int, C.uint) {
+func FetchOnline(h C.handler) (**C.char, C.int, C.uint) {
 	wr := getWrapper(h)
 	online, err := wr.Handler.FetchOnline()
 	if err != nil {
-		return C.CString(""), C.int(-1), proccessError(err)
+		return nil, C.int(-1), proccessError(err)
 	}
-	strOnline := strings.Join(online, ",")
-	return C.CString(strOnline), C.int(len(online)), C.uint(handlers.SUCCESS)
-}
 
+	l := len(online)
+	ptrSize := unsafe.Sizeof((*C.char)(nil))
+	cArrayPtr := C.malloc(C.size_t(l) * C.size_t(ptrSize))
+	cArraySlice := (*[1 << 30]*C.char)(cArrayPtr)[:l:l]
+	for i, s := range online {
+		cArraySlice[i] = C.CString(s)
+	}
+	return (**C.char)(cArrayPtr), C.int(l), C.uint(handlers.SUCCESS)
+}
 func proccessError(err error) C.uint {
 	var (
 		ae   handlers.ErrorCode
