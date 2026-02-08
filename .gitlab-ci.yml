@@ -18,7 +18,7 @@ deploy-job:
   stage: deploy 
   script:
     - cp $ENV_FILE .env
-    - docker-compose rm -s aloh-networking-clients || true
+    - docker-compose rm -s user-000 || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate aloh-networking-clients
     - sleep 5
-    - docker-compose logs aloh-networking-clients
+    - docker-compose logs user-000
