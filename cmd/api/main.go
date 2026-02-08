@@ -178,6 +178,26 @@ func FetchOnline(h C.handler) (**C.char, C.int, C.uint) {
 	}
 	return (**C.char)(cArrayPtr), C.int(l), C.uint(handlers.SUCCESS)
 }
+
+//export FetchSessions
+func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.int, C.uint) {
+	wr := getWrapper(h)
+	goID := C.GoString((*C.char)(id))
+	sessions, err := wr.Handler.FetchSessionById(goID)
+	if err != nil {
+		return nil, C.int(-1), proccessError(err)
+	}
+
+	l := len(sessions)
+	ptrSize := unsafe.Sizeof((*C.char)(nil))
+	cArrayPtr := C.malloc(C.size_t(l) * C.size_t(ptrSize))
+	cArraySlice := (*[1 << 30]*C.char)(cArrayPtr)[:l:l]
+	for i, s := range sessions {
+		cArraySlice[i] = C.CString(s)
+	}
+	return (**C.char)(cArrayPtr), C.int(l), C.uint(handlers.SUCCESS)
+}
+
 func proccessError(err error) C.uint {
 	var (
 		ae   handlers.ErrorCode
