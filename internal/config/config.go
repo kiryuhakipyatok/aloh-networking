@@ -76,7 +76,7 @@ func NewConfig(path, name string) *Config {
 	}
 	data = []byte(os.ExpandEnv(string(data)))
 	v := viper.New()
-	v.SetConfigName("config")
+	v.SetConfigName(name)
 	v.SetConfigType("yaml")
 	cfg := &Config{}
 	if err := v.ReadConfig(bytes.NewBuffer(data)); err != nil {
