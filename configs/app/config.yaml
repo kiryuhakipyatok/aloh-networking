@@ -6,7 +6,7 @@ app:
   sendSDPSize: 100
 
 signaling:
-  address: "localhost"
+  address: "164.90.163.153"
   port: "1234"
   handshakeTimeout: 10s
   idleTimeout: 10m
