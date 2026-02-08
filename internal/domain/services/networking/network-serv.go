@@ -177,6 +177,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 
 						return
 					}
+
 					if _, err := stream.Write(data); err != nil {
 						log.Error("failed to write msg in stream", logger.Err(err), userIdLog)
 						return

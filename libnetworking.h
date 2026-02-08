@@ -30,11 +30,11 @@ typedef const char cchar_t;
 
 typedef uintptr_t handler;
 
-typedef void (*DataCallback)(void* data, size_t len);
+typedef void (*DataCallback)(const char* id, void* data, size_t len);
 
-static void call_callback(DataCallback f, void* data, int len) {
+static void call_callback(DataCallback f, const char* id, void* data, size_t len) {
     if (f) {
-        f(data, len);
+        f(id, data, len);
     }
 }
 

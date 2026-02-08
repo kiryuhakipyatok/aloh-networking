@@ -8,11 +8,11 @@ typedef const char cchar_t;
 
 typedef uintptr_t handler;
 
-typedef void (*DataCallback)(void* data, size_t len);
+typedef void (*DataCallback)(const char* id, void* data, size_t len);
 
-static void call_callback(DataCallback f, void* data, int len) {
+static void call_callback(DataCallback f, const char* id, void* data, size_t len) {
     if (f) {
-        f(data, len);
+        f(id, data, len);
     }
 }
 */
@@ -43,7 +43,7 @@ func NewHandler(userID *C.cchar_t, configPath *C.cchar_t, configName *C.cchar_t)
 		goConfigPath = C.GoString((*C.char)(configPath))
 	}
 	goConfigName := ""
-	if configPath != nil {
+	if configName != nil {
 		goConfigName = C.GoString((*C.char)(configName))
 	}
 
@@ -129,35 +129,45 @@ func SendVideo(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 //export RegisterOnChat
 func RegisterOnChat(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
-	wr.Handler.OnChat(func(data []byte) {
+	wr.Handler.OnChat(func(id string, data []byte) {
 		if len(data) == 0 {
 			return
 		}
 		cData := unsafe.Pointer(&data[0])
-		cLen := C.int(len(data))
-		C.call_callback(cb, cData, cLen)
+		cLen := C.size_t(len(data))
+		cId := C.CString(id)
+		defer C.free(unsafe.Pointer(cId)) 
+		C.call_callback(cb, cId, cData, cLen)
 	})
 }
 
 //export RegisterOnVoice
 func RegisterOnVoice(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
-	wr.Handler.OnVoice(func(data []byte) {
+	wr.Handler.OnVoice(func(id string, data []byte) {
 		if len(data) == 0 {
 			return
 		}
-		C.call_callback(cb, unsafe.Pointer(&data[0]), C.int(len(data)))
+		cData := unsafe.Pointer(&data[0])
+		cLen := C.size_t(len(data))
+		cId := C.CString(id)
+		defer C.free(unsafe.Pointer(cId)) 
+		C.call_callback(cb, cId, cData, cLen)
 	})
 }
 
 //export RegisterOnVideo
 func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 	wr := getWrapper(h)
-	wr.Handler.OnVideo(func(data []byte) {
+	wr.Handler.OnVideo(func(id string, data []byte) {
 		if len(data) == 0 {
 			return
 		}
-		C.call_callback(cb, unsafe.Pointer(&data[0]), C.int(len(data)))
+		cData := unsafe.Pointer(&data[0])
+		cLen := C.size_t(len(data))
+		cId := C.CString(id)
+		defer C.free(unsafe.Pointer(cId)) 
+		C.call_callback(cb, cId, cData, cLen)
 	})
 }
 
@@ -172,7 +182,7 @@ func FetchOnline(h C.handler) (**C.char, C.int, C.uint) {
 	l := len(online)
 	ptrSize := unsafe.Sizeof((*C.char)(nil))
 	cArrayPtr := C.malloc(C.size_t(l) * C.size_t(ptrSize))
-	cArraySlice := (*[1 << 30]*C.char)(cArrayPtr)[:l:l]
+	cArraySlice := unsafe.Slice((**C.char)(cArrayPtr), l)
 	for i, s := range online {
 		cArraySlice[i] = C.CString(s)
 	}
@@ -191,7 +201,7 @@ func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.int, C.uint) {
 	l := len(sessions)
 	ptrSize := unsafe.Sizeof((*C.char)(nil))
 	cArrayPtr := C.malloc(C.size_t(l) * C.size_t(ptrSize))
-	cArraySlice := (*[1 << 30]*C.char)(cArrayPtr)[:l:l]
+	cArraySlice := unsafe.Slice((**C.char)(cArrayPtr), l)
 	for i, s := range sessions {
 		cArraySlice[i] = C.CString(s)
 	}

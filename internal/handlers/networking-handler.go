@@ -153,15 +153,15 @@ func (nh *NetworkingHandler) SendVideo(data []byte) error {
 	return nil
 }
 
-func (nh *NetworkingHandler) OnChat(f func(data []byte)) {
+func (nh *NetworkingHandler) OnChat(f func(id string, data []byte)) {
 	nh.NetworkingServ.SaveChatHandler(f)
 }
 
-func (nh *NetworkingHandler) OnVideo(f func(data []byte)) {
+func (nh *NetworkingHandler) OnVideo(f func(id string, data []byte)) {
 	nh.NetworkingServ.SaveVideoHandler(f)
 }
 
-func (nh *NetworkingHandler) OnVoice(f func(data []byte)) {
+func (nh *NetworkingHandler) OnVoice(f func(id string, data []byte)) {
 	nh.NetworkingServ.SaveVoiceHandler(f)
 }
 

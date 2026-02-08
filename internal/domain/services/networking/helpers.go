@@ -20,24 +20,24 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) processData(data []byte) {
+func (ns *networkingServ) processData(id string ,data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	switch data[0] {
 	case CHAT:
 		chatHdlr, ok := ns.onChatHandler.Load().(handler)
 		if ok {
-			chatHdlr(data[1:])
+			chatHdlr(id, data[1:])
 		}
 	case VOICE:
 		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
 		if ok {
-			voiceHdlr(data[1:])
+			voiceHdlr(id, data[1:])
 		}
 	case VIDEO:
 		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
 		if ok {
-			videoHdlr(data[1:])
+			videoHdlr(id, data[1:])
 		}
 	default:
 		err := errors.New("ivalid type")
@@ -381,7 +381,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
-			ns.processData(data)
+			ns.processData(session.UserID, data)
 		}
 	}()
 	for {
@@ -398,7 +398,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			continue
 		}
-		ns.processData(buf[:n])
+		ns.processData(session.UserID, buf[:n])
 		stream.CancelRead(0)
 		clear(buf)
 	}
