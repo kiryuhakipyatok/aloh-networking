@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -76,8 +77,9 @@ func NewConfig(path, name string) *Config {
 	}
 	data = []byte(os.ExpandEnv(string(data)))
 	v := viper.New()
-	v.SetConfigName(name)
-	v.SetConfigType("yaml")
+	n := strings.Split(name, ".")
+	v.SetConfigName(n[0])
+	v.SetConfigType(n[1])
 	cfg := &Config{}
 	if err := v.ReadConfig(bytes.NewBuffer(data)); err != nil {
 		panic(fmt.Errorf("failed to read config: %w", err))

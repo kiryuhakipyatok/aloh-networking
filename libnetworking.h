@@ -100,16 +100,16 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern handler NewHandler(cchar_t* userID, cchar_t* configPath, cchar_t* configName);
-extern void DeleteHandler(handler h);
-extern unsigned int Connect(handler h, cchar_t* idsStr);
-extern unsigned int Disconnect(handler h);
-extern unsigned int SendMessage(handler h, cchar_t* msg);
-extern unsigned int SendVoice(handler h, void* data, int length);
-extern unsigned int SendVideo(handler h, void* data, int length);
-extern void RegisterOnChat(handler h, DataCallback cb);
-extern void RegisterOnVoice(handler h, DataCallback cb);
-extern void RegisterOnVideo(handler h, DataCallback cb);
+extern __declspec(dllexport) handler NewHandler(cchar_t* userID, cchar_t* configPath, cchar_t* configName);
+extern __declspec(dllexport) void DeleteHandler(handler h);
+extern __declspec(dllexport) unsigned int Connect(handler h, cchar_t* idsStr);
+extern __declspec(dllexport) unsigned int Disconnect(handler h);
+extern __declspec(dllexport) unsigned int SendMessage(handler h, cchar_t* msg);
+extern __declspec(dllexport) unsigned int SendVoice(handler h, void* data, int length);
+extern __declspec(dllexport) unsigned int SendVideo(handler h, void* data, int length);
+extern __declspec(dllexport) void RegisterOnChat(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVoice(handler h, DataCallback cb);
+extern __declspec(dllexport) void RegisterOnVideo(handler h, DataCallback cb);
 
 /* Return type for FetchOnline */
 struct FetchOnline_return {
@@ -117,7 +117,7 @@ struct FetchOnline_return {
 	int r1;
 	unsigned int r2;
 };
-extern struct FetchOnline_return FetchOnline(handler h);
+extern __declspec(dllexport) struct FetchOnline_return FetchOnline(handler h);
 
 /* Return type for FetchSessions */
 struct FetchSessions_return {
@@ -125,7 +125,7 @@ struct FetchSessions_return {
 	int r1;
 	unsigned int r2;
 };
-extern struct FetchSessions_return FetchSessions(handler h, cchar_t* id);
+extern __declspec(dllexport) struct FetchSessions_return FetchSessions(handler h, cchar_t* id);
 
 #ifdef __cplusplus
 }
