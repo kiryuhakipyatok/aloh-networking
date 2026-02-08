@@ -42,6 +42,7 @@ type NetworkingServ interface {
 	SaveVoiceHandler(h handler)
 	SaveVideoHandler(h handler)
 	FetchOnline(ctx context.Context) ([]string, error)
+	FetchSessionsById(ctx context.Context, id string) ([]string, error)
 }
 
 type networkingServ struct {
@@ -80,7 +81,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 }
 
 func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
-	op := "networkingServ.Сonnect"
+	op := "networkingServ.Connect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
 	userIdLog := logger.Attr("userId", ns.userId)
@@ -248,4 +249,22 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 	log.Info("online fetched successfully")
 	return onlineIds, nil
 
+}
+
+func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]string, error) {
+	op := "networkingServ.FetchSessions"
+	log := ns.logger.AddOp(op)
+	log.Info("sessions by id fetching...")
+	sessionsByte, err := ns.signalingClient.GetSessionsById(ctx, id)
+	if err != nil {
+		log.Error("failed to fetch sessions by id", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	var sessions []string
+	if err := json.Unmarshal(sessionsByte, &sessions); err != nil {
+		log.Error("failed to unmarshal sessions by id", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	log.Info("sessions by id fetched successfully")
+	return sessions, nil
 }

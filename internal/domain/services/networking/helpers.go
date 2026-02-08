@@ -79,6 +79,11 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	default:
 	}
 	log.Info("creating new session...", ridLog)
+	if err := ns.signalingClient.AddSession(ctx, rid); err != nil {
+		log.Error("failed to add session", logger.Err(err), ridLog)
+		return nil, errs.NewAppError(op, err)
+	}
+
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
