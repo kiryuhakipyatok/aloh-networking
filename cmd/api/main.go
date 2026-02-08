@@ -172,11 +172,11 @@ func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 }
 
 //export FetchOnline
-func FetchOnline(h C.handler) (**C.char, C.int, C.uint) {
+func FetchOnline(h C.handler) (**C.char, C.size_t, C.uint) {
 	wr := getWrapper(h)
 	online, err := wr.Handler.FetchOnline()
 	if err != nil {
-		return nil, C.int(-1), proccessError(err)
+		return nil, C.size_t(0), proccessError(err)
 	}
 
 	l := len(online)
@@ -186,16 +186,16 @@ func FetchOnline(h C.handler) (**C.char, C.int, C.uint) {
 	for i, s := range online {
 		cArraySlice[i] = C.CString(s)
 	}
-	return (**C.char)(cArrayPtr), C.int(l), C.uint(handlers.SUCCESS)
+	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(handlers.SUCCESS)
 }
 
 //export FetchSessions
-func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.int, C.uint) {
+func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.size_t, C.uint) {
 	wr := getWrapper(h)
 	goID := C.GoString((*C.char)(id))
 	sessions, err := wr.Handler.FetchSessionById(goID)
 	if err != nil {
-		return nil, C.int(-1), proccessError(err)
+		return nil, C.size_t(0), proccessError(err)
 	}
 
 	l := len(sessions)
@@ -205,7 +205,7 @@ func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.int, C.uint) {
 	for i, s := range sessions {
 		cArraySlice[i] = C.CString(s)
 	}
-	return (**C.char)(cArrayPtr), C.int(l), C.uint(handlers.SUCCESS)
+	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(handlers.SUCCESS)
 }
 
 func proccessError(err error) C.uint {
