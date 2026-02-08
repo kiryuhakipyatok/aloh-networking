@@ -19,6 +19,6 @@ deploy-job:
   script:
     - cp $ENV_FILE .env
     - docker-compose down --remove-orphans
-    - docker-compose up -d --build user-000
+    - docker-compose up -d --build
     - sleep 5
     - docker-compose logs user-000

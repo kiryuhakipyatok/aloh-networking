@@ -9,6 +9,7 @@ Connect
 DeleteHandler
 Disconnect
 FetchOnline
+FetchSessions
 NewHandler
 RegisterOnChat
 RegisterOnVideo
