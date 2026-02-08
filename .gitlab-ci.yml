@@ -17,12 +17,7 @@ test-job:
 deploy-job:
   stage: deploy 
   script:
-      cat > .env << EOF
-      CONFIG_PATH=$CONFIG_PATH
-      CONFIG_NAME=$CONFIG_NAME
-      TURN_USERNAME=$TURN_USERNAME
-      TURN_PASSWORD=$TURN_PASSWORD
-      EOF
+    - cp $ENV_FILE .env
     - docker-compose rm -s aloh-networking-clients || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate aloh-networking-clients
     - sleep 5
