@@ -53,6 +53,7 @@ func (nh *NetworkingHandler) Start() {
 				fmt.Println(err.Error())
 				break
 			}
+			m = strings.TrimSpace(m)
 			if err := nh.SendMessage(m); err != nil {
 				fmt.Println(err.Error())
 			}
@@ -62,6 +63,7 @@ func (nh *NetworkingHandler) Start() {
 				fmt.Println(err.Error())
 				break
 			}
+			m = strings.TrimSpace(m)
 			if err := nh.SendVoice([]byte(m)); err != nil {
 				fmt.Println(err)
 			}
@@ -71,6 +73,7 @@ func (nh *NetworkingHandler) Start() {
 				fmt.Println(err.Error())
 				break
 			}
+			m = strings.TrimSpace(m)
 			if err := nh.SendVideo([]byte(m)); err != nil {
 				fmt.Println(err.Error())
 			}
@@ -84,6 +87,19 @@ func (nh *NetworkingHandler) Start() {
 				fmt.Println(err.Error())
 			} else {
 				fmt.Println(online)
+			}
+		case "sessionsId":
+			m, err := reader.ReadString('\n')
+			if err != nil && !errors.Is(err, io.EOF) {
+				fmt.Println(err.Error())
+				break
+			}
+			m = strings.TrimSpace(m)
+			sessions, err := nh.FetchSessionById(m)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println(sessions)
 			}
 		default:
 			fmt.Println("sosi")
@@ -157,4 +173,14 @@ func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
 		return nil, processError(err)
 	}
 	return online, nil
+}
+
+func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
+	defer cancel()
+	sessions, err := nh.NetworkingServ.FetchSessionsById(ctx, id)
+	if err != nil {
+		return nil, processError(err)
+	}
+	return sessions, nil
 }

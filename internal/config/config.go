@@ -23,6 +23,9 @@ type App struct {
 	Env            string `mapstructure:"env"`
 	ReceiveSDPSize int    `mapstructure:"receiveSDPSize"`
 	SendSDPSize    int    `mapstructure:"sendSDPSize"`
+	ConfigPath     string `mapstructure:"configPath"`
+	ConfigName     string `mapstructure:"configName"`
+	LogPath        string `mapstructure:"logPath"`
 }
 
 type Signaling struct {

@@ -17,6 +17,7 @@ test-job:
 deploy-job:
   stage: deploy 
   script:
+<<<<<<< HEAD
     - |
       cat > .env << EOF
       CONFIG_PATH=$CONFIG_PATH
@@ -34,4 +35,10 @@ deploy-job:
     - docker-compose -f docker-compose.yaml down --remove-orphans || true
     - docker-compose -f docker-compose.yaml up -d --force-recreate
     - sleep 10
+=======
+    - cp $ENV_FILE .env
+    - docker-compose down --remove-orphans
+    - docker-compose up -d --build user-000
+    - sleep 5
+>>>>>>> main
     - docker-compose logs user-000

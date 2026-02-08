@@ -4,10 +4,11 @@ app:
   env: "local"
   receiveSDPSize: 100
   sendSDPSize: 100
+  logPath: ""
 
 signaling:
-  address: "${SIGNALING_ADDRESS}"
-  port: "${SIGNALING_PORT}"
+  address: "164.90.163.153"
+  port: "1234"
   handshakeTimeout: 10s
   idleTimeout: 10m
   keepAlivePeriodTimeout: 10s
@@ -22,10 +23,10 @@ networking:
   idleTimeout: 10m
   keepAlivePeriodTimeout: 10s
   nextProtos: ["aloh-networking"]
-  stunHost: "${STUN_HOST}"
-  stunPort: "${STUN_PORT}"
-  turnHost: "${TURN_HOST}"
-  turnPort: "${TURN_PORT}"
+  stunHost: "164.90.163.153"
+  stunPort: "3478"
+  turnHost: "164.90.163.153"
+  turnPort: "3478"
   turnUsername: "${TURN_USERNAME}"
   turnPassword: "${TURN_PASSWORD}"
   newSDPTimeout: 2s

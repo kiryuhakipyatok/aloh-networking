@@ -5,14 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"networking/internal/config"
-	"networking/internal/utils"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/quic-go/quic-go"
 )
 
@@ -20,6 +17,8 @@ type SignalingClient interface {
 	Close(code uint, desc string) error
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 	GetOnline(ctx context.Context) ([]byte, error)
+	GetSessionsById(ctx context.Context, id string) ([]byte, error)
+	AddSession(ctx context.Context, id string) error
 }
 
 type signalingClient struct {
@@ -90,163 +89,6 @@ func (sc *signalingClient) Close(code uint, desc string) error {
 	return nil
 }
 
-func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {
-	var (
-		op    = "signalingClient.registerConnect"
-		log   = sc.logger.AddOp(op)
-		idLog = logger.Attr("user-id", id)
-	)
-	log.Info("connect registering...", idLog)
-
-	ctrlStream, err := sc.conn.OpenStreamSync(ctx)
-	if err != nil {
-		log.Error("failed to open quic uni stream", logger.Err(err), idLog)
-		return errs.NewAppError(op, err)
-	}
-	var (
-		encoder = json.NewEncoder(ctrlStream)
-		decoder = json.NewDecoder(ctrlStream)
-	)
-	sc.decoder = decoder
-	sc.encoder = encoder
-	sc.ctrlStream = ctrlStream
-	regMsg := RegisterConnectMessage{
-		ID: id,
-	}
-	dataReg, err := json.Marshal(regMsg)
-	if err != nil {
-		log.Error("failed to marshal register message", logger.Err(err), idLog)
-		return errs.NewAppError(op, err)
-	}
-	msg := Message{
-		Id:   uuid.NewString(),
-		Type: utils.Uint8ToPtr(REG_TYPE),
-		Data: json.RawMessage(dataReg),
-	}
-	if err := encoder.Encode(msg); err != nil {
-		log.Error("failed to encode register message to signaling", logger.Err(err), idLog)
-		return errs.NewAppError(op, err)
-	}
-
-	var responseMsg ResponseMessage
-	if err := sc.decoder.Decode(&responseMsg); err != nil {
-		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
-		return errs.NewAppError(op, err)
-	}
-	switch *responseMsg.Code {
-	case SUCCESS:
-		log.Info("connect registered successfully", idLog)
-		return nil
-	default:
-		err := codeToError(op, *responseMsg.Code)
-		log.Error("failed to register connect", idLog, logger.Err(err))
-		return err
-	}
-
-}
-
-func (sc *signalingClient) receiveResponses() {
-	var (
-		op  = "signalingClient.receiveResponses"
-		log = sc.logger.AddOp(op)
-	)
-	for {
-		select {
-		case <-sc.closeCtx.Done():
-			return
-		default:
-		}
-		var responseMsg ResponseMessage
-		if err := sc.decoder.Decode(&responseMsg); err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
-			}
-			log.Error("failed to receive response message from signaling", logger.Err(err))
-			continue
-		}
-
-		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", *responseMsg.Code))
-		log.Info("new response message from signaling", respLog...)
-		resChanInt, ok := sc.pendingResponses.Load(responseMsg.MessageId)
-		if ok {
-			// switch responseMsg.Code {
-			// case SUCCESS:
-			// 	reqChan, _ := resChanInt.(chan uint)
-			// 	reqChan <- responseMsg.Code
-			// case PAYLOAD_SUCCESS:
-			reqChan, _ := resChanInt.(chan ResponseMessage)
-			reqChan <- responseMsg
-			// }
-
-		}
-	}
-}
-
-func (sc *signalingClient) sendMsg() {
-	var (
-		op  = "signalingClient.sendMsg"
-		log = sc.logger.AddOp(op)
-	)
-
-	for msg := range sc.sendMsgs {
-		select {
-		case <-sc.closeCtx.Done():
-			return
-		default:
-		}
-		msgIdLog := logger.Attr("msgId", msg.Id)
-		if err := sc.encoder.Encode(msg); err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
-			}
-			log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
-		} else {
-			log.Info("msg sended successfully", msgIdLog)
-		}
-	}
-
-}
-
-func (sc *signalingClient) receiveSDP() {
-	var (
-		op  = "signalingClient.receiveSDP"
-		log = sc.logger.AddOp(op)
-	)
-
-	for {
-		select {
-		case <-sc.closeCtx.Done():
-			return
-		default:
-		}
-		stream, err := sc.conn.AcceptUniStream(sc.closeCtx)
-		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
-			}
-			log.Error("failed to accept uni stream from signaling", logger.Err(err))
-		}
-		streamIdLog := logger.Attr("streamId", stream.StreamID())
-		data, err := io.ReadAll(stream)
-		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
-			}
-			log.Error("failed to read data from uni stream", logger.Err(err), streamIdLog)
-		}
-		sdpMsg, err := ToReplyMessage(data)
-		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
-			}
-			log.Error("failed cast sdp message to reply message", logger.Err(err), streamIdLog)
-		}
-		sc.receiveSDPs <- *sdpMsg
-		log.Info("sdp received successfully", logger.Attr("senderId", sdpMsg.Sender))
-	}
-
-}
-
 func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string) error {
 	var (
 		op  = "signalingClient.NewSDP"
@@ -254,40 +96,9 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 	)
 	log.Info("creating new sdp...")
 
-	sendMsg := SendPayloadMessage{
-		RecevierIDs: ids,
-		Payload:     sdp,
+	if err := sc.sendPayload(ctx, ids, sdp); err != nil {
+		log.Error("failed to send payload", logger.Err(err))
 	}
-	sendData, err := json.Marshal(sendMsg)
-	if err != nil {
-		log.Error("failed to marshal sdp message", logger.Err(err))
-		return errs.NewAppError(op, err)
-	}
-	msgId := uuid.NewString()
-	respChan := make(chan uint, 1)
-	sc.pendingResponses.Store(msgId, respChan)
-	defer sc.pendingResponses.Delete(msgId)
-	msg := Message{
-		Id:   msgId,
-		Type: utils.Uint8ToPtr(STREAM_TYPE),
-		Data: sendData,
-	}
-	select {
-	case sc.sendMsgs <- msg:
-	case <-ctx.Done():
-		return errs.ErrRequestTimeout(op)
-	}
-	select {
-	case code := <-respChan:
-		if code != SUCCESS {
-			return codeToError(op, code)
-		}
-	case <-ctx.Done():
-		return errs.ErrRequestTimeout(op)
-	case <-sc.closeCtx.Done():
-		return errs.AppClosing(op)
-	}
-
 	log.Info("sdp created successfully")
 	return nil
 
@@ -299,46 +110,59 @@ func (sc *signalingClient) GetOnline(ctx context.Context) ([]byte, error) {
 		log = sc.logger.AddOp(op)
 	)
 	log.Info("fetching online from signaling...")
-	msgId := uuid.NewString()
-	respChan := make(chan ResponseMessage, 1)
-	sc.pendingResponses.Store(msgId, respChan)
-	defer sc.pendingResponses.Delete(msgId)
-	msg := Message{
-		Id:   msgId,
-		Type: utils.Uint8ToPtr(GET_ONLINE_TYPE),
-		Data: nil,
-	}
-	select {
-	case sc.sendMsgs <- msg:
-	case <-ctx.Done():
-		return nil, errs.ErrRequestTimeout(op)
-	}
-	onlineIds := []byte{}
-	select {
-	case respMsg := <-respChan:
-		if *respMsg.Code != PAYLOAD_SUCCESS {
-			return nil, codeToError(op, *respMsg.Code)
-		}
-		onlineIds = respMsg.Payload
-	case <-ctx.Done():
-		return nil, errs.ErrRequestTimeout(op)
-	case <-sc.closeCtx.Done():
-		return nil, errs.AppClosing(op)
+
+	online, err := sc.getPayload(ctx, GET_ONLINE_TYPE, nil)
+	if err != nil {
+		log.Error("failed to get payload from signaling")
+		return nil, errs.NewAppError(op, err)
 	}
 
 	log.Info("online fetched from signaling")
-	return onlineIds, nil
+	return online, nil
 }
 
-func codeToError(op string, code uint) error {
-	switch code {
-	case NOT_FOUND:
-		return errs.ErrNotFound(op)
-	case ALREADY_EXISTS:
-		return errs.ErrAlreadyExists(op)
-	case REQUEST_TIMEOUT:
-		return errs.ErrRequestTimeout(op)
-	default:
-		return errs.ErrInternal(op)
+func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]byte, error) {
+
+	var (
+		op  = "signalingClient.GetSessionsById"
+		log = sc.logger.AddOp(op)
+	)
+	log.Info("fetching sessions by id from signaling...")
+	userId := UserId{
+		ID: id,
 	}
+	sendData, err := json.Marshal(userId)
+	if err != nil {
+		return nil, errs.NewAppError(op, err)
+	}
+	sessions, err := sc.getPayload(ctx, GET_SESSIONS_BY_ID, sendData)
+	if err != nil {
+		log.Error("failed to get sessions by id from signaling", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+
+	log.Info("sessions by id fetched from signaling")
+	return sessions, nil
+}
+
+func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
+
+	var (
+		op  = "signalingClient.GetSessionsById"
+		log = sc.logger.AddOp(op)
+	)
+	log.Info("adding session to signaling...")
+	userId := UserId{
+		ID: id,
+	}
+	data, err := json.Marshal(userId)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	if err := sc.sendCommand(ctx, ADD_IN_SESSION, data); err != nil {
+		log.Error("failed to send command", logger.Err(err))
+		return errs.NewAppError(op, err)
+	}
+	return nil
 }

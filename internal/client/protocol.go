@@ -11,6 +11,8 @@ const (
 	DATAGRAM_TYPE
 	DISCONN_TYPE
 	GET_ONLINE_TYPE
+	ADD_IN_SESSION
+	GET_SESSIONS_BY_ID
 )
 
 const (
@@ -31,7 +33,7 @@ type Message struct {
 	Data json.RawMessage `json:"data" validate:"required"`
 }
 
-type RegisterConnectMessage struct {
+type UserId struct {
 	ID string `json:"id" validate:"required,min=1"`
 }
 
@@ -51,9 +53,9 @@ type ResponseMessage struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
-func ToRegisterConnectMessage(data json.RawMessage) (*RegisterConnectMessage, error) {
+func ToRegisterConnectMessage(data json.RawMessage) (*UserId, error) {
 	op := "protocols.ToRegisterConnectMessage"
-	regMsg := &RegisterConnectMessage{}
+	regMsg := &UserId{}
 	if err := json.Unmarshal(data, regMsg); err != nil {
 		return nil, errs.ErrInvalidJson(op, err)
 	}
