@@ -20,7 +20,7 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) processData(id string ,data []byte) {
+func (ns *networkingServ) processData(id string, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	switch data[0] {
@@ -145,12 +145,14 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed on connection state change", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("candidate gathering", ridLog)
-	if err := agent.GatherCandidates(); err != nil {
-		log.Error("failed to gather candidates", logger.Err(err), ridLog)
-		return nil, errs.NewAppError(op, err)
-	}
-	log.Info("session saving", ridLog)
+	go func() {
+		log.Info("candidate gathering...", ridLog)
+		if err := agent.GatherCandidates(); err != nil {
+			log.Error("failed to gather candidates", logger.Err(err), ridLog)
+			ns.disconnectSession(session)
+		}
+	}()
+	log.Info("session saving...", ridLog)
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -334,8 +336,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		t := quic.Transport{
 			Conn: packetConn,
 		}
-		tlsConf := utils.GenerateTLSConfig(ns.cfg.NextProtos)
-		listener, err := t.Listen(tlsConf, quicConf)
+		listener, err := t.Listen(ns.tlsConf, quicConf)
 		if err != nil {
 			log.Error("failed to start listen quic connections", logger.Err(err), userIdLog)
 			return errs.NewAppError(op, err)

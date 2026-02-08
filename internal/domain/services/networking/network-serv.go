@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"networking/internal/client"
@@ -54,11 +55,13 @@ type networkingServ struct {
 	logger          *logger.Logger
 	cfg             config.Networking
 	closeCtx        context.Context
+	tlsConf         *tls.Config
 	handlers
 }
 
 func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan client.ReplyMessage) NetworkingServ {
 	closeCtx, cancel := context.WithCancel(ctx)
+	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
 	ns := &networkingServ{
 		userId:          id,
 		signalingClient: sc,
@@ -68,6 +71,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 		cfg:             cfg,
 		logger:          l,
 		closeCtx:        closeCtx,
+		tlsConf:         tlsConf,
 	}
 
 	go func() {
