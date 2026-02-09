@@ -3,6 +3,10 @@
 set(ALOH_NETWORKING_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(GO_LIB_NAME "libnetworking")
 set(GO_ENTRY "./cmd/api/main.go")
+set(ALOH_USING_MSVC_LINKER FALSE)
+if(MSVC OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set(ALOH_USING_MSVC_LINKER TRUE)
+endif()
 
 # --- Find Go ---
 find_program(GO_EXECUTABLE go REQUIRED)
@@ -17,10 +21,13 @@ if(WIN32)
     set(GO_SHARED_LIB "${CMAKE_CURRENT_BINARY_DIR}/${GO_LIB_NAME}.dll")
     set(GO_IMPLIB_A   "${CMAKE_CURRENT_BINARY_DIR}/${GO_LIB_NAME}.dll.a")
     set(GO_HEADER     "${CMAKE_CURRENT_BINARY_DIR}/${GO_LIB_NAME}.h")
+    set(GO_DEF_FILE   "${CMAKE_CURRENT_BINARY_DIR}/${GO_LIB_NAME}.def")
+    set(GO_DEF_SOURCE "${ALOH_NETWORKING_DIR}/${GO_LIB_NAME}.def")
 
     # CGO on Windows requires MinGW GCC regardless of the C++ compiler
+    # --output-def makes the MinGW linker emit a .def alongside the DLL
     add_custom_command(
-        OUTPUT "${GO_SHARED_LIB}" "${GO_IMPLIB_A}" "${GO_HEADER}"
+        OUTPUT "${GO_SHARED_LIB}" "${GO_IMPLIB_A}" "${GO_HEADER}" "${GO_DEF_FILE}"
         DEPENDS ${GO_SRCS}
         WORKING_DIRECTORY "${ALOH_NETWORKING_DIR}"
         COMMENT "[aloh-networking] Building Go shared library (Windows)..."
@@ -32,23 +39,24 @@ if(WIN32)
             "${GO_EXECUTABLE}" build
                 -buildmode=c-shared
                 -o "${GO_SHARED_LIB}"
-                -ldflags "-extldflags '-static'"
+                -ldflags "-extldflags '-static -Wl,--output-def,${GO_DEF_FILE}'"
                 "${GO_ENTRY}"
     )
 
     # MSVC's link.exe cannot read MinGW .dll.a files.
-    # Generate a .lib from the checked-in .def file.
-    if(MSVC)
+    # Generate a .lib from the auto-generated .def file.
+    if(ALOH_USING_MSVC_LINKER)
         set(ALOH_NETWORKING_IMPLIB "${CMAKE_CURRENT_BINARY_DIR}/${GO_LIB_NAME}.lib")
 
         find_program(LIB_TOOL NAMES llvm-lib lib REQUIRED)
 
         add_custom_command(
             OUTPUT "${ALOH_NETWORKING_IMPLIB}"
-            DEPENDS "${GO_SHARED_LIB}"
+            DEPENDS "${GO_SHARED_LIB}" "${GO_DEF_SOURCE}"
             COMMAND "${LIB_TOOL}"
-                "/def:${ALOH_NETWORKING_DIR}/${GO_LIB_NAME}.def"
+                "/def:${GO_DEF_SOURCE}"
                 "/out:${ALOH_NETWORKING_IMPLIB}"
+                "/NAME:${GO_LIB_NAME}.dll"
                 /machine:x64
             COMMENT "[aloh-networking] Generating MSVC import library (.lib) from .def"
         )
