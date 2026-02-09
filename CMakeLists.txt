@@ -93,7 +93,7 @@ add_dependencies(aloh-networking build_aloh_networking)
 
 # Header from the source tree (the committed libnetworking.h)
 set_target_properties(aloh-networking PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${ALOH_NETWORKING_DIR}"
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR};${ALOH_NETWORKING_DIR}"
 )
 
 if(WIN32)
