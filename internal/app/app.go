@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
+	"google.golang.org/genai"
 )
 
 func loadEnv() error {
@@ -89,18 +90,36 @@ func Run() {
 
 	go networkingHandler.Start()
 
+	ctx := context.Background()
+	clientCfg:=&genai.ClientConfig{
+		APIKey: "AIzaSyDhPDckohaUJZj727j-Ttp_CYOlRE60pxU",
+	}
+	client, err := genai.NewClient(ctx, clientCfg)
+	if err != nil {
+		panic(err)
+	}
+
 	networkingHandler.OnChat(func(data []byte) {
-		if err:=networkingHandler.SendMessage(string(data));err!=nil{
+		result, err := client.Models.GenerateContent(
+			ctx,
+			"gemini-3-flash-preview",
+			genai.Text(string(data)),
+			nil,
+		)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if err := networkingHandler.SendMessage(result.Text()); err != nil {
 			fmt.Println(err)
 		}
 	})
 	networkingHandler.OnVideo(func(data []byte) {
-		if err:=networkingHandler.SendVideo(data);err!=nil{
+		if err := networkingHandler.SendVideo(data); err != nil {
 			fmt.Println(err)
 		}
 	})
 	networkingHandler.OnVoice(func(data []byte) {
-		if err:=networkingHandler.SendVoice(data);err!=nil{
+		if err := networkingHandler.SendVoice(data); err != nil {
 			fmt.Println(err)
 		}
 	})
