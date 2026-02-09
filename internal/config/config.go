@@ -56,6 +56,7 @@ type Networking struct {
 	TURNPassword           string        `mapstructure:"turnPassword"`
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
+	BufferSize             int           `mapstructure:"bufferSize"`
 }
 
 type Handler struct {

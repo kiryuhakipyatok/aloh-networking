@@ -370,7 +370,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	buf := make([]byte, 512)
+	buf := make([]byte, ns.cfg.BufferSize)
 	go func() {
 		for {
 			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
@@ -401,6 +401,5 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		}
 		ns.processData(session.UserID, buf[:n])
 		stream.CancelRead(0)
-		clear(buf)
 	}
 }

@@ -31,6 +31,7 @@ networking:
   turnPassword: "${TURN_PASSWORD}"
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
+  bufferSize: 4096
 
 handler:
   sendChatTimeout: 10s

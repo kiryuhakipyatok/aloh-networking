@@ -8,9 +8,9 @@ typedef const char cchar_t;
 
 typedef uintptr_t handler;
 
-typedef void (*DataCallback)(const char* id, void* data, size_t len);
+typedef void (*DataCallback)(cchar_t* id, void* data, size_t len);
 
-static void call_callback(DataCallback f, const char* id, void* data, size_t len) {
+static void call_callback(DataCallback f, cchar_t* id, void* data, size_t len) {
     if (f) {
         f(id, data, len);
     }
