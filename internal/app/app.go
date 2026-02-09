@@ -90,13 +90,19 @@ func Run() {
 	go networkingHandler.Start()
 
 	networkingHandler.OnChat(func(data []byte) {
-		fmt.Println(string(data))
+		if err:=networkingHandler.SendMessage(string(data));err!=nil{
+			fmt.Println(err)
+		}
 	})
 	networkingHandler.OnVideo(func(data []byte) {
-		fmt.Println(string(data))
+		if err:=networkingHandler.SendVideo(data);err!=nil{
+			fmt.Println(err)
+		}
 	})
 	networkingHandler.OnVoice(func(data []byte) {
-		fmt.Println(string(data))
+		if err:=networkingHandler.SendVoice(data);err!=nil{
+			fmt.Println(err)
+		}
 	})
 
 	quit := make(chan os.Signal, 1)
