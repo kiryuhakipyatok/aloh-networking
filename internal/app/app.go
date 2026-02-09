@@ -103,7 +103,7 @@ func Run() {
 		var res string
 		result, err := client.Models.GenerateContent(
 			ctx,
-			"gemini-2.0-flash",
+			"gemini-2.5-flash",
 			genai.Text(string(data)),
 			nil,
 		)
