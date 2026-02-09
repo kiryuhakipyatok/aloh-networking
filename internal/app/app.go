@@ -91,7 +91,7 @@ func Run() {
 	go networkingHandler.Start()
 
 	ctx := context.Background()
-	clientCfg:=&genai.ClientConfig{
+	clientCfg := &genai.ClientConfig{
 		APIKey: "AIzaSyDhPDckohaUJZj727j-Ttp_CYOlRE60pxU",
 	}
 	client, err := genai.NewClient(ctx, clientCfg)
@@ -100,18 +100,23 @@ func Run() {
 	}
 
 	networkingHandler.OnChat(func(data []byte) {
+		var res string
 		result, err := client.Models.GenerateContent(
 			ctx,
-			"gemini-3-flash-preview",
+			"gemini-2.0-flash",
 			genai.Text(string(data)),
 			nil,
 		)
 		if err != nil {
+			res = err.Error()
+			fmt.Println(err)
+		}else{
+			res = result.Text()
+		}
+		if err := networkingHandler.SendMessage(res); err != nil {
 			fmt.Println(err)
 		}
-		if err := networkingHandler.SendMessage(result.Text()); err != nil {
-			fmt.Println(err)
-		}
+
 	})
 	networkingHandler.OnVideo(func(data []byte) {
 		if err := networkingHandler.SendVideo(data); err != nil {
