@@ -80,6 +80,7 @@ else()
             "${GO_EXECUTABLE}" build
                 -buildmode=c-shared
                 -o "${GO_SHARED_LIB}"
+                -ldflags "-extldflags '-Wl,-soname,${GO_LIB_NAME}.so'"
                 "${GO_ENTRY}"
     )
 endif()
