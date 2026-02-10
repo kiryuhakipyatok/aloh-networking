@@ -382,6 +382,8 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
+			msgLog := logger.Attr("msg", string(data))
+			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
 			ns.processData(session.UserID, data)
 		}
 	}()
@@ -399,7 +401,10 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			continue
 		}
-		ns.processData(session.UserID, buf[:n])
+		data := buf[:n]
+		msgLog := logger.Attr("msg", string(data))
+		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
+		ns.processData(session.UserID, data)
 		stream.CancelRead(0)
 	}
 }
