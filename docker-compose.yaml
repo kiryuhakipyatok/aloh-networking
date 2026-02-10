@@ -1,72 +1,51 @@
 services:
   user-111:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=111"]
     stdin_open: true
     tty: true
   user-222:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=222"]
     stdin_open: true
     tty: true
   user-333:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=333"]
     stdin_open: true
     tty: true
   user-444:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=444"]
     stdin_open: true
     tty: true
   user-555:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=555"]
     stdin_open: true
     tty: true
   user-666:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=666"]
     stdin_open: true
     tty: true
   user-777:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=777"]
     stdin_open: true
     tty: true
   user-888:
-    build: .
-    env_file:
-      - .env
+    image: aloh-networking-image
     command: ["-id=888"]
     stdin_open: true
     tty: true
   user-999:
     image: aloh-networking-image
-    env_file:
-      - .env
     command: ["-id=999"]
     stdin_open: true
     tty: true
   user-000:
     image: aloh-networking-image
-    build: .
-    env_file:
-      - .env
     command: ["-id=000"]
     stdin_open: true
     tty: true

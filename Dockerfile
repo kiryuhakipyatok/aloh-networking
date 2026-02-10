@@ -16,8 +16,6 @@ WORKDIR /app
 
 COPY --from=builder /usr/local/src/bin/app .
 
-COPY configs /configs
-
 ENTRYPOINT ["./app"]
 
 CMD ["-id=000"]

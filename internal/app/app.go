@@ -96,7 +96,7 @@ func Run() {
 		panic(err)
 	}
 
-	networkingHandler.OnChat(func(data []byte) {
+	networkingHandler.OnChat(func(id string, data []byte) {
 		var res string
 		result, err := client.Models.GenerateContent(
 			ctx,
@@ -115,12 +115,12 @@ func Run() {
 		}
 
 	})
-	networkingHandler.OnVideo(func(data []byte) {
+	networkingHandler.OnVideo(func(id string, data []byte) {
 		if err := networkingHandler.SendVideo(data); err != nil {
 			fmt.Println(err)
 		}
 	})
-	networkingHandler.OnVoice(func(data []byte) {
+	networkingHandler.OnVoice(func(id string, data []byte) {
 		if err := networkingHandler.SendVoice(data); err != nil {
 			fmt.Println(err)
 		}
