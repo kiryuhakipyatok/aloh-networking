@@ -89,8 +89,6 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed to fetch creds", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	fmt.Println(username)
-	fmt.Println(password)
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
@@ -258,7 +256,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 			}
 
 			go func() {
-				estCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+				estCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 				defer cancel()
 				if err := ns.establishConnection(estCtx, session); err != nil {
 					log.Error("failed to establish connection", logger.Err(err), userLog)
@@ -305,6 +303,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		log.Info("dialing agent connection", userIdLog)
 		conn, err = session.Agent.Dial(ctx, remoteUfrag, remotePwd)
 		if err != nil {
+			fmt.Println(ctx.Err())
 			log.Error("failed to dial agent", logger.Err(err), userIdLog)
 			return errs.NewAppError(op, err)
 		}
