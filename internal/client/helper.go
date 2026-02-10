@@ -54,16 +54,13 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
-	switch *responseMsg.Code {
-	case SUCCESS:
-		log.Info("connect registered successfully", idLog)
-		return nil
-	default:
-		err := codeToError(op, *responseMsg.Code)
-		log.Error("failed to register connect", idLog, logger.Err(err))
-		return err
+	creds, err := ToCredsMessage(responseMsg.Payload)
+	if err != nil {
+		log.Error("failed to cast creds message", logger.Err(err), idLog)
 	}
-
+	sc.password = creds.Password
+	sc.username = creds.Username
+	return nil
 }
 
 func (sc *signalingClient) receiveResponses() {
@@ -172,7 +169,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 		Type: utils.Uint8ToPtr(msgType),
 		Data: data,
 	}
-	payload, err := sc.check(ctx, checkConf{typee: PAYLOAD_SUCCESS, op: op, msg: msg, respChan: respChan})
+	payload, err := sc.checkResp(ctx, checkConf{typee: PAYLOAD_SUCCESS, op: op, msg: msg, respChan: respChan})
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +195,7 @@ func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data [
 		Type: utils.Uint8ToPtr(STREAM_TYPE),
 		Data: sendData,
 	}
-	_, err = sc.check(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
+	_, err = sc.checkResp(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
 	return err
 }
 
@@ -213,7 +210,7 @@ func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data 
 		Type: utils.Uint8ToPtr(msgType),
 		Data: data,
 	}
-	_, err := sc.check(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
+	_, err := sc.checkResp(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
 	return err
 }
 
@@ -237,7 +234,7 @@ type checkConf struct {
 	respChan chan ResponseMessage
 }
 
-func (sc *signalingClient) check(ctx context.Context, cc checkConf) ([]byte, error) {
+func (sc *signalingClient) checkResp(ctx context.Context, cc checkConf) ([]byte, error) {
 	select {
 	case sc.sendMsgs <- cc.msg:
 	case <-ctx.Done():

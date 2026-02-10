@@ -54,8 +54,8 @@ type Networking struct {
 	STUNPort               int           `mapstructure:"stunPort"`
 	TURNHost               string        `mapstructure:"turnHost"`
 	TURNPort               int           `mapstructure:"turnPort"`
-	TURNUsername           string        `mapstructure:"turnUsername"`
-	TURNPassword           string        `mapstructure:"turnPassword"`
+	// TURNUsername           string        `mapstructure:"turnUsername"`
+	// TURNPassword           string        `mapstructure:"turnPassword"`
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	BufferSize             int           `mapstructure:"bufferSize"`

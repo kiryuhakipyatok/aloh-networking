@@ -27,8 +27,6 @@ networking:
   stunPort: "3478"
   turnHost: "164.90.163.153"
   turnPort: "3478"
-  turnUsername: "${TURN_USERNAME}"
-  turnPassword: "${TURN_PASSWORD}"
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
   bufferSize: 4096

@@ -53,6 +53,11 @@ type ResponseMessage struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
+type CredsMessage struct {
+	Username string `json:"username" validate:"required,min=1"`
+	Password string `json:"password" validate:"required,min=1"`
+}
+
 func ToRegisterConnectMessage(data json.RawMessage) (*UserId, error) {
 	op := "protocols.ToRegisterConnectMessage"
 	regMsg := &UserId{}
@@ -70,6 +75,16 @@ func ToSendPayloadMessage(data json.RawMessage) (*SendPayloadMessage, error) {
 	}
 
 	return connectMsg, nil
+}
+
+func ToCredsMessage(data json.RawMessage) (*CredsMessage, error) {
+	op := "protocols.ToCredsMessage"
+	creds := &CredsMessage{}
+	if err := json.Unmarshal(data, creds); err != nil {
+		return nil, errs.ErrInvalidJson(op, err)
+	}
+
+	return creds, nil
 }
 
 func ToReplyMessage(data []byte) (*ReplyMessage, error) {

@@ -84,10 +84,16 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, errs.NewAppError(op, err)
 	}
 
+	username,password,err:=ns.signalingClient.GetCreds(ctx)
+	if err!=nil{
+		log.Error("failed to fetch creds", logger.Err(err), ridLog)
+		return nil, errs.NewAppError(op, err)
+	}
+
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: ns.cfg.TURNUsername, Password: ns.cfg.TURNPassword, Proto: stun.ProtoTypeTCP},
+			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
 		},
 		NetworkTypes: []ice.NetworkType{
 			ice.NetworkTypeUDP4,
@@ -382,7 +388,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
-			msgLog := logger.Attr("msg", string(data))
+			msgLog := logger.Attr("msgLen", len(data))
 			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
 			ns.processData(session.UserID, data)
 		}
@@ -403,7 +409,8 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		}
 		data := buf[:n]
 		msgLog := logger.Attr("msg", string(data))
-		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
+		msgLenLog := logger.Attr("msgLen", len(data))
+		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
 		ns.processData(session.UserID, data)
 		stream.CancelRead(0)
 	}
