@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"networking/internal/client"
-	"networking/internal/config"
+	"networking/config"
 	"networking/internal/domain/repository"
 	"networking/internal/domain/services/networking"
 	"networking/internal/handlers"
@@ -34,11 +34,11 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(configPath, configName, userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
+func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
-	cfg := config.NewConfig(configPath, configName)
+	cfg := config.NewConfig()
 	log := logger.NewLogger(cfg.App)
 	log.Info("initializing library...")
 
@@ -80,10 +80,7 @@ func Run() {
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
-	configPath := os.Getenv("CONFIG_PATH")
-	configName := os.Getenv("CONFIG_NAME")
-
-	networkingServ, close, handlerCfg := Init(configPath, configName, *id)
+	networkingServ, close, handlerCfg := Init(*id)
 
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 

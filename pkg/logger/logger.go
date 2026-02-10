@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"networking/internal/config"
+	"networking/config"
 	"os"
 )
 

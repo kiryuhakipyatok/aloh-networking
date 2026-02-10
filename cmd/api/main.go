@@ -35,19 +35,10 @@ type Wrapper struct {
 }
 
 //export NewHandler
-func NewHandler(userID *C.cchar_t, configPath *C.cchar_t, configName *C.cchar_t) C.handler {
+func NewHandler(userID *C.cchar_t) C.handler {
 	goUserID := C.GoString((*C.char)(userID))
 
-	goConfigPath := ""
-	if configPath != nil {
-		goConfigPath = C.GoString((*C.char)(configPath))
-	}
-	goConfigName := ""
-	if configName != nil {
-		goConfigName = C.GoString((*C.char)(configName))
-	}
-
-	service, cancel, cfg := app.Init(goConfigPath, goConfigName, goUserID)
+	service, cancel, cfg := app.Init(goUserID)
 
 	nh := handlers.NewNetworkingHandler(service, cfg)
 

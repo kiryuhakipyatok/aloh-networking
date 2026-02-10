@@ -100,7 +100,7 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
-extern handler NewHandler(cchar_t* userID, cchar_t* configPath, cchar_t* configName);
+extern handler NewHandler(cchar_t* userID);
 extern void DeleteHandler(handler h);
 extern unsigned int Connect(handler h, cchar_t* idsStr);
 extern unsigned int Disconnect(handler h);

@@ -2,14 +2,16 @@ package config
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 )
+
+//go:embed config.yaml
+var embeddedConfig []byte
 
 type Config struct {
 	App        App        `mapstructure:"app"`
@@ -67,20 +69,23 @@ type Handler struct {
 	FetchOnlineTimeout time.Duration `mapstructure:"fetchOnlineTimeout"`
 }
 
-func NewConfig(path, name string) *Config {
-	if path == "" || name == "" {
-		panic(fmt.Errorf("config path or name is empty"))
+func NewConfig() *Config {
+	// if path == "" || name == "" {
+	// 	panic(fmt.Errorf("config path or name is empty"))
+	// }
+	if len(embeddedConfig) == 0 {
+		panic("embedded config is empty")
 	}
-	filename := filepath.Join(path, name)
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		panic(fmt.Errorf("failed to read config file: %w", err))
-	}
-	data = []byte(os.ExpandEnv(string(data)))
+	// filename := filepath.Join(path, name)
+	// data, err := os.ReadFile(filename)
+	// if err != nil {
+	// 	panic(fmt.Errorf("failed to read config file: %w", err))
+	// }
+	// data = []byte(os.ExpandEnv(string(data)))
+	data := []byte(os.ExpandEnv(string(embeddedConfig)))
 	v := viper.New()
-	n := strings.Split(name, ".")
-	v.SetConfigName(n[0])
-	v.SetConfigType(n[1])
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
 	cfg := &Config{}
 	if err := v.ReadConfig(bytes.NewBuffer(data)); err != nil {
 		panic(fmt.Errorf("failed to read config: %w", err))

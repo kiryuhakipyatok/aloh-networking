@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"networking/internal/config"
+	"networking/config"
 	"networking/internal/domain/services/networking"
 	"networking/internal/utils"
 	"os"

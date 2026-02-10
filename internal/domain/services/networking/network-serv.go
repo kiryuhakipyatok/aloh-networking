@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"networking/internal/client"
-	"networking/internal/config"
+	"networking/config"
 	"networking/internal/domain/models"
 	"networking/internal/domain/repository"
 	"networking/internal/utils"

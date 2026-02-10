@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"networking/internal/config"
+	"networking/config"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
 	"sync"
