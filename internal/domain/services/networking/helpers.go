@@ -23,25 +23,34 @@ import (
 func (ns *networkingServ) processData(id string, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
-	switch data[0] {
+	if len(data) == 0 {
+		log.Error("received empty data, skipping")
+		return
+	}
+	msgType := data[0]
+	payload := make([]byte, len(data)-1)
+	copy(payload, data[1:])
+	switch msgType {
 	case CHAT:
 		chatHdlr, ok := ns.onChatHandler.Load().(handler)
-		if ok {
-			chatHdlr(id, data[1:])
+		if !ok {
+			log.Error("chat handler not set (RegisterOnChat never called or type assertion failed)")
+			return
 		}
+		chatHdlr(id, payload)
 	case VOICE:
 		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
 		if ok {
-			voiceHdlr(id, data[1:])
+			voiceHdlr(id, payload)
 		}
 	case VIDEO:
 		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
 		if ok {
-			videoHdlr(id, data[1:])
+			videoHdlr(id, payload)
 		}
 	default:
-		err := errors.New("ivalid type")
-		log.Error("failed to process data", logger.Err(err))
+		err := errors.New("invalid type")
+		log.Error("failed to process data", logger.Err(err), logger.Attr("type", msgType))
 	}
 }
 
@@ -370,7 +379,6 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	buf := make([]byte, ns.cfg.BufferSize)
 	go func() {
 		for {
 			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
@@ -394,12 +402,17 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to accept uni stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			return
 		}
-		n, err := stream.Read(buf)
-		if err != nil && !errors.Is(err, io.EOF) {
-			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
+		// Uni stream payload can arrive in multiple chunks; process only after full read.
+		data, err := io.ReadAll(stream)
+		if err != nil {
+			log.Error("failed to read full stream", logger.Err(err), remoteAddrLog, localAddrLog)
+			stream.CancelRead(0)
 			continue
 		}
-		ns.processData(session.UserID, buf[:n])
-		stream.CancelRead(0)
+		if len(data) == 0 {
+			stream.CancelRead(0)
+			continue
+		}
+		ns.processData(session.UserID, data)
 	}
 }
