@@ -89,7 +89,8 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed to fetch creds", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-
+	fmt.Println(username)
+	fmt.Println(password)
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
