@@ -1,0 +1,39 @@
+app:
+  name: "aloh-networking"
+  version: "1.0.0"
+  env: "local"
+  receiveSDPSize: 100
+  sendSDPSize: 100
+  logPath: ""
+
+signaling:
+  address: "164.90.163.153"
+  port: "1234"
+  handshakeTimeout: 10s
+  idleTimeout: 10m
+  keepAlivePeriodTimeout: 10s
+  closeTimeout: 10s
+  startTimeout: 10s
+  nextProtos: ["aloh-proto"]
+  maxIncomingStreams: 100
+  regTimeout: 10s
+
+networking:
+  handshakeTimeout: 10s
+  idleTimeout: 10m
+  keepAlivePeriodTimeout: 10s
+  nextProtos: ["aloh-networking"]
+  stunHost: "164.90.163.153"
+  stunPort: "3478"
+  turnHost: "164.90.163.153"
+  turnPort: "3478"
+  newSDPTimeout: 2s
+  sendInStreamTimeout: 5s
+  bufferSize: 4096
+
+handler:
+  sendChatTimeout: 10s
+  sendVideoTimeout: 10s
+  sendVoiceTimeout: 10s
+  connectTimeout: 10s
+  fetchOnlineTimeout: 10s

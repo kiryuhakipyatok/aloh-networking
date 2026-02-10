@@ -20,24 +20,24 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) processData(data []byte) {
+func (ns *networkingServ) processData(id string, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	switch data[0] {
 	case CHAT:
 		chatHdlr, ok := ns.onChatHandler.Load().(handler)
 		if ok {
-			chatHdlr(data[1:])
+			chatHdlr(id, data[1:])
 		}
 	case VOICE:
 		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
 		if ok {
-			voiceHdlr(data[1:])
+			voiceHdlr(id, data[1:])
 		}
 	case VIDEO:
 		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
 		if ok {
-			videoHdlr(data[1:])
+			videoHdlr(id, data[1:])
 		}
 	default:
 		err := errors.New("ivalid type")
@@ -84,10 +84,16 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, errs.NewAppError(op, err)
 	}
 
+	username,password,err:=ns.signalingClient.GetCreds(ctx)
+	if err!=nil{
+		log.Error("failed to fetch creds", logger.Err(err), ridLog)
+		return nil, errs.NewAppError(op, err)
+	}
+
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: ns.cfg.TURNUsername, Password: ns.cfg.TURNPassword, Proto: stun.ProtoTypeTCP},
+			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
 		},
 		NetworkTypes: []ice.NetworkType{
 			ice.NetworkTypeUDP4,
@@ -145,12 +151,14 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed on connection state change", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("candidate gathering", ridLog)
-	if err := agent.GatherCandidates(); err != nil {
-		log.Error("failed to gather candidates", logger.Err(err), ridLog)
-		return nil, errs.NewAppError(op, err)
-	}
-	log.Info("session saving", ridLog)
+	go func() {
+		log.Info("candidate gathering...", ridLog)
+		if err := agent.GatherCandidates(); err != nil {
+			log.Error("failed to gather candidates", logger.Err(err), ridLog)
+			ns.disconnectSession(session)
+		}
+	}()
+	log.Info("session saving...", ridLog)
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -334,8 +342,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		t := quic.Transport{
 			Conn: packetConn,
 		}
-		tlsConf := utils.GenerateTLSConfig(ns.cfg.NextProtos)
-		listener, err := t.Listen(tlsConf, quicConf)
+		listener, err := t.Listen(ns.tlsConf, quicConf)
 		if err != nil {
 			log.Error("failed to start listen quic connections", logger.Err(err), userIdLog)
 			return errs.NewAppError(op, err)
@@ -369,7 +376,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	buf := make([]byte, 512)
+	buf := make([]byte, ns.cfg.BufferSize)
 	go func() {
 		for {
 			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
@@ -381,7 +388,9 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
-			ns.processData(data)
+			msgLog := logger.Attr("msgLen", len(data))
+			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
+			ns.processData(session.UserID, data)
 		}
 	}()
 	for {
@@ -398,8 +407,11 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			continue
 		}
-		ns.processData(buf[:n])
+		data := buf[:n]
+		msgLog := logger.Attr("msg", string(data))
+		msgLenLog := logger.Attr("msgLen", len(data))
+		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
+		ns.processData(session.UserID, data)
 		stream.CancelRead(0)
-		clear(buf)
 	}
 }

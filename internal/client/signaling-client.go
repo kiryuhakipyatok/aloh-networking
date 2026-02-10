@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"networking/internal/config"
+	"networking/config"
 	"networking/pkg/errs"
 	"networking/pkg/logger"
 	"sync"
@@ -19,6 +19,7 @@ type SignalingClient interface {
 	GetOnline(ctx context.Context) ([]byte, error)
 	GetSessionsById(ctx context.Context, id string) ([]byte, error)
 	AddSession(ctx context.Context, id string) error
+	GetCreds(ctx context.Context) (string, string, error)
 }
 
 type signalingClient struct {
@@ -31,6 +32,8 @@ type signalingClient struct {
 	logger           *logger.Logger
 	closeCtx         context.Context
 	pendingResponses sync.Map
+	username         string
+	password         string
 }
 
 func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
@@ -165,4 +168,19 @@ func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
 		return errs.NewAppError(op, err)
 	}
 	return nil
+}
+
+func (sc *signalingClient) GetCreds(ctx context.Context) (string, string, error) {
+	var (
+		op  = "signalingClient.GetCreds"
+		log = sc.logger.AddOp(op)
+	)
+	select {
+	case <-ctx.Done():
+		return "", "", errs.ErrRequestTimeout(op)
+	default:
+	}
+	log.Info("fetchig creds...")
+
+	return sc.username, sc.password, nil
 }

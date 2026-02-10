@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"networking/internal/config"
+	"networking/config"
 	"os"
 )
 
@@ -27,7 +27,7 @@ func NewLogger(acfg config.App) *Logger {
 		if err != nil {
 			panic(fmt.Errorf("failed to open log file: %w", err))
 		}
-		writer = io.MultiWriter(logFile, os.Stdout)
+		writer = io.Writer(logFile)
 	}
 	switch env {
 	case local:

@@ -2,10 +2,11 @@ package networking
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"networking/config"
 	"networking/internal/client"
-	"networking/internal/config"
 	"networking/internal/domain/models"
 	"networking/internal/domain/repository"
 	"networking/internal/utils"
@@ -54,11 +55,13 @@ type networkingServ struct {
 	logger          *logger.Logger
 	cfg             config.Networking
 	closeCtx        context.Context
+	tlsConf         *tls.Config
 	handlers
 }
 
 func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan client.ReplyMessage) NetworkingServ {
 	closeCtx, cancel := context.WithCancel(ctx)
+	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
 	ns := &networkingServ{
 		userId:          id,
 		signalingClient: sc,
@@ -68,6 +71,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 		cfg:             cfg,
 		logger:          l,
 		closeCtx:        closeCtx,
+		tlsConf:         tlsConf,
 	}
 
 	go func() {
@@ -153,15 +157,19 @@ func (ns *networkingServ) Disconnect() error {
 func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
-	log.Info("message sending")
+	userIdLog := logger.Attr("userId", ns.userId)
+	msgLog := logger.Attr("msg", string(data))
+	msgLenLog := logger.Attr("msgLen", len(data))
+	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog, msgLog)
+	log.Info("message sending", sendMsgLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		log.Info("failed to fetch sessions", logger.Err(err))
+		log.Info("failed to fetch sessions", logger.Err(err), msgLenLog, msgLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		log.Info("zero sessions")
+		log.Info("zero sessions", logger.Err(err), msgLenLog, msgLog, userIdLog)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -169,16 +177,17 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 			go func(s *models.Session) {
 				gctx, cancel := context.WithTimeout(context.Background(), ns.cfg.SendInStreamTimeout)
 				defer cancel()
-				userIdLog := logger.Attr("userId", s.UserID)
+				recIdLog := logger.Attr("recieverId", s.UserID)
 				{
 					stream, err := s.Conn.OpenUniStreamSync(gctx)
 					if err != nil {
-						log.Error("failed to open uni stream", logger.Err(err), userIdLog)
+						log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
 
 						return
 					}
+
 					if _, err := stream.Write(data); err != nil {
-						log.Error("failed to write msg in stream", logger.Err(err), userIdLog)
+						log.Error("failed to write msg in stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
 						return
 					}
 					if err := stream.Close(); err != nil {
@@ -187,14 +196,14 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 							return
 
 						}
-						log.Error("failed to close uni stream", logger.Err(err), userIdLog)
+						log.Error("failed to close uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
 						return
 					}
 				}
 			}(s)
 		}
 	}
-	log.Info("message sent")
+	log.Info("message sent", userIdLog)
 	return nil
 
 }
@@ -202,32 +211,35 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
-	log.Info("datagram sending")
+	userIdLog := logger.Attr("userId", ns.userId)
+	dgLenLog := logger.Attr("msgLen", len(data))
+	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
+	log.Info("datagram sending", sendDatagramLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		log.Info("failed to fetch sessions", logger.Err(err))
+		log.Info("failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		log.Info("zero sessions")
+		log.Info("zero sessions", sendDatagramLog...)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
 		if s.Conn != nil {
 			go func(s *models.Session) {
 
-				userIdLog := logger.Attr("userId", s.UserID)
+				recIdLog := logger.Attr("receiverId", s.UserID)
 
 				if err := s.Conn.SendDatagram(data); err != nil {
-					log.Info("failed to send datagram", logger.Err(err), userIdLog)
+					log.Info("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
 
 			}(s)
 		}
 	}
-	log.Info("datagram sent")
+	log.Info("datagram sent", sendDatagramLog...)
 	return nil
 
 }

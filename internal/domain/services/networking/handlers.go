@@ -2,7 +2,7 @@ package networking
 
 import "sync/atomic"
 
-type handler func(data []byte)
+type handler func(id string, data []byte)
 
 type handlers struct {
 	onChatHandler  atomic.Value
