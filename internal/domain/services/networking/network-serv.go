@@ -159,8 +159,9 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", ns.userId)
-	msgLog := logger.Attr("msg", string(data))
-	msgLenLog := logger.Attr("msgLen", len(data))
+	payload:=data[1:]
+	msgLog := logger.Attr("msg", string(payload))
+	msgLenLog := logger.Attr("msgLen", len(payload))
 	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog, msgLog)
 	log.Info("message sending", sendMsgLog...)
 
@@ -204,7 +205,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 			}(s)
 		}
 	}
-	log.Info("message sent", userIdLog)
+	log.Info("message sent", sendMsgLog...)
 	return nil
 
 }
@@ -213,7 +214,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", ns.userId)
-	dgLenLog := logger.Attr("msgLen", len(data))
+	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
 	log.Info("datagram sending", sendDatagramLog...)
 

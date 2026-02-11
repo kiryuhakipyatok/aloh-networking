@@ -425,7 +425,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		}
 		msgLog := logger.Attr("msg", string(data[1:]))
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
+		log.Info("new msg from stream received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
 		stream.CancelRead(0)
 		ns.processData(session.UserID, data)
 	}
