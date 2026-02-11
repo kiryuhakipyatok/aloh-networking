@@ -113,8 +113,9 @@ func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
 				log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
 				return err
 			}
-
-			if err := ns.establishConnection(gCtx, session); err != nil {
+			estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
+			defer cancel()
+			if err := ns.establishConnection(estCtx, session); err != nil {
 				log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
 				ns.disconnectSession(session)
 				return err

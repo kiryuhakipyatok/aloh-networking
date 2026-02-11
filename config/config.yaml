@@ -29,7 +29,7 @@ networking:
   turnPort: "3478"
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
-  bufferSize: 4096
+  establishConnTimeout: 30s
 
 handler:
   sendChatTimeout: 10s
