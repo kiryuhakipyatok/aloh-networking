@@ -119,6 +119,9 @@ func SendVideo(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 
 //export RegisterOnChat
 func RegisterOnChat(h C.handler, cb C.DataCallback) {
+	if cb == nil{
+		return
+	}
 	wr := getWrapper(h)
 	wr.Handler.OnChat(func(id string, data []byte) {
 		if len(data) == 0 {
@@ -134,6 +137,9 @@ func RegisterOnChat(h C.handler, cb C.DataCallback) {
 
 //export RegisterOnVoice
 func RegisterOnVoice(h C.handler, cb C.DataCallback) {
+	if cb == nil{
+		return
+	}
 	wr := getWrapper(h)
 	wr.Handler.OnVoice(func(id string, data []byte) {
 		if len(data) == 0 {
@@ -149,6 +155,9 @@ func RegisterOnVoice(h C.handler, cb C.DataCallback) {
 
 //export RegisterOnVideo
 func RegisterOnVideo(h C.handler, cb C.DataCallback) {
+	if cb == nil{
+		return
+	}
 	wr := getWrapper(h)
 	wr.Handler.OnVideo(func(id string, data []byte) {
 		if len(data) == 0 {

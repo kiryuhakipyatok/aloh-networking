@@ -23,25 +23,32 @@ import (
 func (ns *networkingServ) processData(id string, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
-	switch data[0] {
+	if len(data) == 0 {
+		log.Error("proccessing empty data")
+		return
+	}
+	msgType := data[0]
+	payload := make([]byte, len(data)-1)
+	copy(payload, data[1:])
+	switch msgType {
 	case CHAT:
 		chatHdlr, ok := ns.onChatHandler.Load().(handler)
 		if ok {
-			chatHdlr(id, data[1:])
+			chatHdlr(id, payload)
 		}
 	case VOICE:
 		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
 		if ok {
-			voiceHdlr(id, data[1:])
+			voiceHdlr(id, payload)
 		}
 	case VIDEO:
 		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
 		if ok {
-			videoHdlr(id, data[1:])
+			videoHdlr(id, payload)
 		}
 	default:
-		err := errors.New("ivalid type")
-		log.Error("failed to process data", logger.Err(err))
+		err := errors.New("invalid type")
+		log.Error("failed to process data", logger.Err(err), logger.Attr("msgType", msgType))
 	}
 }
 
@@ -76,6 +83,8 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	select {
 	case <-ns.closeCtx.Done():
 		return nil, errs.AppClosing(op)
+	case <-ctx.Done():
+		return nil, errs.ErrRequestTimeout(op)
 	default:
 	}
 	log.Info("creating new session...", ridLog)
@@ -84,14 +93,15 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, errs.NewAppError(op, err)
 	}
 
-	username,password,err:=ns.signalingClient.GetCreds(ctx)
-	if err!=nil{
+	username, password, err := ns.signalingClient.GetCreds(ctx)
+	if err != nil {
 		log.Error("failed to fetch creds", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	agent, err := ice.NewAgent(&ice.AgentConfig{
 		Urls: []*stun.URI{
 			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
+			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeUDP},
 			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
 		},
 		NetworkTypes: []ice.NetworkType{
@@ -243,6 +253,8 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 	select {
 	case <-ns.closeCtx.Done():
 		return nil, errs.AppClosing(op)
+	case <-ctx.Done():
+		return nil, errs.ErrRequestTimeout(op)
 	default:
 	}
 	log.Info("session getting...", userLog)
@@ -256,7 +268,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 			}
 
 			go func() {
-				estCtx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+				estCtx, cancel := context.WithTimeout(context.Background(), ns.cfg.EstablishConnTimeout)
 				defer cancel()
 				if err := ns.establishConnection(estCtx, session); err != nil {
 					log.Error("failed to establish connection", logger.Err(err), userLog)
@@ -376,7 +388,6 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	buf := make([]byte, ns.cfg.BufferSize)
 	go func() {
 		for {
 			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
@@ -402,16 +413,16 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to accept uni stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			return
 		}
-		n, err := stream.Read(buf)
-		if err != nil && !errors.Is(err, io.EOF) {
-			log.Error("failed to read from stream", logger.Err(err), remoteAddrLog, localAddrLog)
-			continue
+
+		data, err := io.ReadAll(stream)
+		if err != nil {
+			log.Error("failed to read data from stream", logger.Err(err), remoteAddrLog, localAddrLog)
+			return
 		}
-		data := buf[:n]
 		msgLog := logger.Attr("msg", string(data))
 		msgLenLog := logger.Attr("msgLen", len(data))
 		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
-		ns.processData(session.UserID, data)
 		stream.CancelRead(0)
+		ns.processData(session.UserID, data)
 	}
 }

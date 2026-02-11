@@ -54,11 +54,9 @@ type Networking struct {
 	STUNPort               int           `mapstructure:"stunPort"`
 	TURNHost               string        `mapstructure:"turnHost"`
 	TURNPort               int           `mapstructure:"turnPort"`
-	// TURNUsername           string        `mapstructure:"turnUsername"`
-	// TURNPassword           string        `mapstructure:"turnPassword"`
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
-	BufferSize             int           `mapstructure:"bufferSize"`
+	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
 }
 
 type Handler struct {
@@ -70,18 +68,10 @@ type Handler struct {
 }
 
 func NewConfig() *Config {
-	// if path == "" || name == "" {
-	// 	panic(fmt.Errorf("config path or name is empty"))
-	// }
+
 	if len(embeddedConfig) == 0 {
 		panic("embedded config is empty")
 	}
-	// filename := filepath.Join(path, name)
-	// data, err := os.ReadFile(filename)
-	// if err != nil {
-	// 	panic(fmt.Errorf("failed to read config file: %w", err))
-	// }
-	// data = []byte(os.ExpandEnv(string(data)))
 	data := []byte(os.ExpandEnv(string(embeddedConfig)))
 	v := viper.New()
 	v.SetConfigName("config")
