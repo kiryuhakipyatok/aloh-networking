@@ -23,10 +23,6 @@ import (
 func (ns *networkingServ) processData(id string, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
-	if len(data) == 0 {
-		log.Error("proccessing empty data")
-		return
-	}
 	msgType := data[0]
 	payload := make([]byte, len(data)-1)
 	copy(payload, data[1:])
@@ -399,7 +395,11 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
 				return
 			}
-			msgLog := logger.Attr("msgLen", len(data))
+			if len(data) < 1 {
+				log.Error("received empty data", remoteAddrLog, localAddrLog)
+				continue
+			}
+			msgLog := logger.Attr("msgLen", len(data[1:]))
 			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
 			ns.processData(session.UserID, data)
 		}
@@ -419,8 +419,12 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 			log.Error("failed to read data from stream", logger.Err(err), remoteAddrLog, localAddrLog)
 			return
 		}
-		msgLog := logger.Attr("msg", string(data))
-		msgLenLog := logger.Attr("msgLen", len(data))
+		if len(data) < 1 {
+			log.Error("received empty data", remoteAddrLog, localAddrLog)
+			continue
+		}
+		msgLog := logger.Attr("msg", string(data[1:]))
+		msgLenLog := logger.Attr("msgLen", len(data[1:]))
 		log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
 		stream.CancelRead(0)
 		ns.processData(session.UserID, data)
