@@ -54,13 +54,21 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
+	respCode := *responseMsg.Code
+	if respCode != PAYLOAD_SUCCESS {
+		log.Error("response code is not payload success", idLog, logger.Attr("respCode", respCode))
+		return codeToError(op, respCode)
+	}
+
 	creds, err := ToCredsMessage(responseMsg.Payload)
 	if err != nil {
 		log.Error("failed to cast creds message", logger.Err(err), idLog)
+		return errs.NewAppError(op, err)
 	}
 	sc.password = creds.Password
 	sc.username = creds.Username
 	return nil
+
 }
 
 func (sc *signalingClient) receiveResponses() {
