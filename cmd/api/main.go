@@ -35,10 +35,11 @@ type Wrapper struct {
 }
 
 //export NewHandler
-func NewHandler(userID *C.cchar_t) C.handler {
+func NewHandler(userID *C.cchar_t, logPath *C.cchar_t) C.handler {
 	goUserID := C.GoString((*C.char)(userID))
+	goLogPath := C.GoString((*C.char)(logPath))
 
-	service, cancel, cfg := app.Init(goUserID)
+	service, cancel, cfg := app.Init(goUserID, goLogPath)
 
 	nh := handlers.NewNetworkingHandler(service, cfg)
 
@@ -119,7 +120,7 @@ func SendVideo(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 
 //export RegisterOnChat
 func RegisterOnChat(h C.handler, cb C.DataCallback) {
-	if cb == nil{
+	if cb == nil {
 		return
 	}
 	wr := getWrapper(h)
@@ -130,14 +131,14 @@ func RegisterOnChat(h C.handler, cb C.DataCallback) {
 		cData := unsafe.Pointer(&data[0])
 		cLen := C.size_t(len(data))
 		cId := C.CString(id)
-		defer C.free(unsafe.Pointer(cId)) 
+		defer C.free(unsafe.Pointer(cId))
 		C.call_callback(cb, cId, cData, cLen)
 	})
 }
 
 //export RegisterOnVoice
 func RegisterOnVoice(h C.handler, cb C.DataCallback) {
-	if cb == nil{
+	if cb == nil {
 		return
 	}
 	wr := getWrapper(h)
@@ -148,14 +149,14 @@ func RegisterOnVoice(h C.handler, cb C.DataCallback) {
 		cData := unsafe.Pointer(&data[0])
 		cLen := C.size_t(len(data))
 		cId := C.CString(id)
-		defer C.free(unsafe.Pointer(cId)) 
+		defer C.free(unsafe.Pointer(cId))
 		C.call_callback(cb, cId, cData, cLen)
 	})
 }
 
 //export RegisterOnVideo
 func RegisterOnVideo(h C.handler, cb C.DataCallback) {
-	if cb == nil{
+	if cb == nil {
 		return
 	}
 	wr := getWrapper(h)
@@ -166,7 +167,7 @@ func RegisterOnVideo(h C.handler, cb C.DataCallback) {
 		cData := unsafe.Pointer(&data[0])
 		cLen := C.size_t(len(data))
 		cId := C.CString(id)
-		defer C.free(unsafe.Pointer(cId)) 
+		defer C.free(unsafe.Pointer(cId))
 		C.call_callback(cb, cId, cData, cLen)
 	})
 }

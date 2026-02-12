@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"networking/internal/client"
 	"networking/config"
+	"networking/internal/client"
 	"networking/internal/domain/repository"
 	"networking/internal/domain/services/networking"
 	"networking/internal/handlers"
@@ -34,12 +34,12 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
+func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
 	cfg := config.NewConfig()
-	log := logger.NewLogger(cfg.App)
+	log := logger.NewLogger(cfg.App, logPath)
 	log.Info("initializing library...")
 
 	sessionRepo := repository.NewSessionRepository()
@@ -68,19 +68,10 @@ func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.
 }
 
 func Run() {
-	if err := godotenv.Load("../../.env"); err != nil {
-		panic(err)
-	}
-	// // if err := godotenv.Load(".env"); err != nil {
-	// // 	panic(err)
-	// // }
-	// if err := loadEnv(); err != nil {
-	// 	panic(err)
-	// }
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
-	networkingServ, close, handlerCfg := Init(*id)
+	networkingServ, close, handlerCfg := Init(*id, "")
 
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 

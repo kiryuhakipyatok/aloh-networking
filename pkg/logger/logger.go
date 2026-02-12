@@ -18,12 +18,12 @@ const (
 	prod  = "prod"
 )
 
-func NewLogger(acfg config.App) *Logger {
+func NewLogger(acfg config.App, logPath string) *Logger {
 	var log *slog.Logger
 	env := acfg.Env
 	writer := io.Writer(os.Stdout)
-	if acfg.LogPath != "" {
-		logFile, err := os.OpenFile(acfg.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if logPath != "" {
+		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
 			panic(fmt.Errorf("failed to open log file: %w", err))
 		}
