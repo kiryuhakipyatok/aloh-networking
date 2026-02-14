@@ -14,10 +14,6 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func Uint8ToPtr(ui uint8) *uint8 {
-	return &ui
-}
-
 func GenerateTLSConfig(protos []string) *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -58,8 +54,8 @@ func CheckErr(ctx context.Context, err error) error {
 		return nil
 	}
 
-	var appErr *quic.ApplicationError
-	if errors.As(err, &appErr) {
+	appErr, ok := errors.AsType[*quic.ApplicationError](err)
+	if ok {
 		if appErr.ErrorCode == 0 {
 			return nil
 		}

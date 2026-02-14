@@ -125,7 +125,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed to get local user credentials", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	creds := []byte(fmt.Sprintf("%s %s", localFrag, localPwd))
+	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
 	sdp := utils.SetFirstByte(CREDS, creds)
 	log.Info("sdp (credentials) creating", ridLog)
 	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
