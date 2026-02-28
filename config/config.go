@@ -54,6 +54,7 @@ type Networking struct {
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
+	DatagramLogTargetCount uint          `mapstructure:"datagramLogTargetCount"`
 }
 
 type Handler struct {

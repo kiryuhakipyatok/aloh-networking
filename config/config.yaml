@@ -30,6 +30,7 @@ networking:
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
   establishConnTimeout: 30s
+  datagramLogTargetCount: 1000
 
 handler:
   sendChatTimeout: 10s
