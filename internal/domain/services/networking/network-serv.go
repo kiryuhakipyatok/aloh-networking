@@ -47,16 +47,17 @@ type NetworkingServ interface {
 }
 
 type networkingServ struct {
-	userId            string
-	signalingClient   client.SignalingClient
-	sessionRepo       repository.SessionRepository
-	receiveSDPs       chan client.ReplyMessage
-	sdpsGroup         singleflight.Group
-	logger            *logger.Logger
-	cfg               config.Networking
-	closeCtx          context.Context
-	tlsConf           *tls.Config
-	sendDatagramCount uint
+	userId                  string
+	signalingClient         client.SignalingClient
+	sessionRepo             repository.SessionRepository
+	receiveSDPs             chan client.ReplyMessage
+	sdpsGroup               singleflight.Group
+	logger                  *logger.Logger
+	cfg                     config.Networking
+	closeCtx                context.Context
+	tlsConf                 *tls.Config
+	sendDatagramLogCount    uint
+	receiveDatagramLogCount uint
 	handlers
 }
 
@@ -64,16 +65,17 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	closeCtx, cancel := context.WithCancel(ctx)
 	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
 	ns := &networkingServ{
-		userId:            id,
-		signalingClient:   sc,
-		sessionRepo:       sr,
-		receiveSDPs:       receiveSDPs,
-		sdpsGroup:         singleflight.Group{},
-		cfg:               cfg,
-		logger:            l,
-		closeCtx:          closeCtx,
-		tlsConf:           tlsConf,
-		sendDatagramCount: 0,
+		userId:                  id,
+		signalingClient:         sc,
+		sessionRepo:             sr,
+		receiveSDPs:             receiveSDPs,
+		sdpsGroup:               singleflight.Group{},
+		cfg:                     cfg,
+		logger:                  l,
+		closeCtx:                closeCtx,
+		tlsConf:                 tlsConf,
+		sendDatagramLogCount:    0,
+		receiveDatagramLogCount: 1,
 	}
 
 	go func() {
@@ -213,22 +215,22 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 }
 
 func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
-	ns.sendDatagramCount++
+	ns.sendDatagramLogCount++
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
-	sparseLog := log.Sparse(ns.sendDatagramCount, ns.cfg.DatagramLogTargetCount)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
 	userIdLog := logger.Attr("userId", ns.userId)
 	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
-	sparseLog.Info("datagram sending", sendDatagramLog...)
+	sparseLog.Info(ns.sendDatagramLogCount, "datagram sending", sendDatagramLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		sparseLog.Info("failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
+		sparseLog.Info(ns.sendDatagramLogCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		sparseLog.Info("zero sessions", sendDatagramLog...)
+		sparseLog.Info(ns.sendDatagramLogCount, "zero sessions", sendDatagramLog...)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -238,17 +240,16 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 				recIdLog := logger.Attr("receiverId", s.UserID)
 
 				if err := s.Conn.SendDatagram(data); err != nil {
-					sparseLog.Info("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					sparseLog.Info(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
-				sparseLog.Info("datagram sent", sendDatagramLog...)
+				sparseLog.Info(ns.sendDatagramLogCount, "datagram sent", sendDatagramLog...)
 
 			}(s)
 		}
 	}
 
 	return nil
-
 }
 
 func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {

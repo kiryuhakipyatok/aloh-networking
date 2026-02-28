@@ -384,26 +384,17 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	go func() {
-		for {
-			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
-			if err != nil {
-				if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-					ns.disconnectSession(session)
-					return
-				}
-				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
-				return
-			}
-			if len(data) < 1 {
-				log.Error("received empty data", remoteAddrLog, localAddrLog)
-				continue
-			}
-			msgLog := logger.Attr("msgLen", len(data[1:]))
-			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
-			ns.processData(session.UserID, data)
-		}
-	}()
+	go ns.receiveDatagrams(session)
+	ns.receiveStreams(session)
+}
+
+func (ns *networkingServ) receiveStreams(session *models.Session) {
+	op := "networkingServ.receiveStreams"
+	log := ns.logger.AddOp(op)
+	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
+	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
+	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
+	log.Info("streams receiving...", connLog...)
 	for {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
@@ -427,6 +418,36 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
 		log.Info("new msg from stream received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
 		stream.CancelRead(0)
+		ns.processData(session.UserID, data)
+	}
+}
+
+func (ns *networkingServ) receiveDatagrams(session *models.Session) {
+	op := "networkingServ.receiveDatagrams"
+	log := ns.logger.AddOp(op)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
+	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
+	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
+	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
+	sparseLog.Info(ns.receiveDatagramLogCount, "datagram receiving...", connLog...)
+	ns.receiveDatagramLogCount = 0
+	for {
+		ns.receiveDatagramLogCount++
+		data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
+		if err != nil {
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session)
+				return
+			}
+			sparseLog.Error(ns.receiveDatagramLogCount, "failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
+			return
+		}
+		if len(data) < 1 {
+			sparseLog.Error(ns.receiveDatagramLogCount, "received empty data", remoteAddrLog, localAddrLog)
+			continue
+		}
+		msgLog := logger.Attr("msgLen", len(data[1:]))
+		sparseLog.Info(ns.receiveDatagramLogCount, "new datagram received", remoteAddrLog, localAddrLog, msgLog)
 		ns.processData(session.UserID, data)
 	}
 }

@@ -27,6 +27,15 @@ func NewLogger(acfg config.App, logPath string) *Logger {
 		if err != nil {
 			panic(fmt.Errorf("failed to open log file: %w", err))
 		}
+		stat, err := logFile.Stat()
+		if err != nil {
+			panic(fmt.Errorf("failed to get log file stat: %w", err))
+		}
+		if stat.Size() > 0 {
+			if err := logFile.Truncate(0); err != nil {
+				panic(fmt.Errorf("failed to clear log file: %w", err))
+			}
+		}
 		writer = io.Writer(logFile)
 	}
 	switch env {
