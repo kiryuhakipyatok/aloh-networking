@@ -226,7 +226,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		sparseLog.Info(ns.sendDatagramLogCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
+		sparseLog.Error(ns.sendDatagramLogCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
@@ -240,7 +240,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 				recIdLog := logger.Attr("receiverId", s.UserID)
 
 				if err := s.Conn.SendDatagram(data); err != nil {
-					sparseLog.Info(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					sparseLog.Error(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
 				sparseLog.Info(ns.sendDatagramLogCount, "datagram sent", sendDatagramLog...)

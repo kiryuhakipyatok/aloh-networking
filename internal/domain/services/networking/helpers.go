@@ -127,7 +127,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	}
 	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
 	sdp := utils.SetFirstByte(CREDS, creds)
-	log.Info("sdp (credentials) creating", ridLog)
+	log.Debug("sdp (credentials) creating", ridLog)
 	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
 		log.Error("failed to create new sdp (credentials)", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -142,7 +142,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			defer cancel()
 			candidate := []byte(c.Marshal())
 			sdp := utils.SetFirstByte(CANDIDATE, candidate)
-			log.Info("sdp (candidate) creating", ridLog)
+			log.Debug("sdp (candidate) creating", ridLog)
 			if err := ns.signalingClient.NewSDP(sdpCtx, sdp, []string{rid}); err != nil {
 				log.Error("failed to create new sdp (candidate)", logger.Err(err), ridLog)
 			}
@@ -164,7 +164,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ns.disconnectSession(session)
 		}
 	}()
-	log.Info("session saving...", ridLog)
+	log.Debug("session saving...", ridLog)
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -191,7 +191,7 @@ func (ns *networkingServ) receiveConnects() error {
 			defer cancel()
 			senderId := sdp.Sender
 			senderIdLog := logger.Attr("senderId", senderId)
-			log.Info("received new sdp", senderIdLog)
+			log.Debug("received new sdp", senderIdLog)
 			v, err, _ := ns.sdpsGroup.Do(sdp.Sender, func() (any, error) {
 				return ns.getSession(ctx, senderId)
 			})
@@ -206,7 +206,7 @@ func (ns *networkingServ) receiveConnects() error {
 			}
 			switch sdp.Payload[0] {
 			case CREDS:
-				log.Info("credentials processing", senderIdLog)
+				log.Debug("credentials processing", senderIdLog)
 				creds := strings.Split(string(sdp.Payload[1:]), " ")
 				if len(creds) < 2 {
 					return
@@ -221,10 +221,10 @@ func (ns *networkingServ) receiveConnects() error {
 				case session.CredsChan <- struct{}{}:
 				default:
 				}
-				log.Info("credentials processed", senderIdLog)
+				log.Debug("credentials processed", senderIdLog)
 
 			case CANDIDATE:
-				log.Info("candidate processing", senderIdLog)
+				log.Debug("candidate processing", senderIdLog)
 				c, err := ice.UnmarshalCandidate(string(sdp.Payload[1:]))
 				if err != nil {
 					log.Error("failed to unmarshal candidate", logger.Err(err), senderIdLog)
@@ -234,7 +234,7 @@ func (ns *networkingServ) receiveConnects() error {
 					log.Error("failed to add remote candidate", logger.Err(err), senderIdLog)
 					return
 				}
-				log.Info("candidate processed", senderIdLog)
+				log.Debug("candidate processed", senderIdLog)
 			}
 		}(sdp)
 	}
@@ -309,7 +309,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 	switch session.IsInitiator {
 	case true:
-		log.Info("dialing agent connection", userIdLog)
+		log.Debug("dialing agent connection", userIdLog)
 		conn, err = session.Agent.Dial(ctx, remoteUfrag, remotePwd)
 		if err != nil {
 			log.Error("failed to dial agent", logger.Err(err), userIdLog)
