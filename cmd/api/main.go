@@ -27,8 +27,8 @@ func (n *Netwoking) Delete() {
 	}
 }
 
-func (n *Netwoking) Connect(ids []string) error {
-	if err := n.Handler.Connect(ids); err != nil {
+func (n *Netwoking) Connect(id string) error {
+	if err := n.Handler.Connect(id); err != nil {
 		return err
 	}
 	return nil

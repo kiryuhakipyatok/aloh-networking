@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"runtime/cgo"
-	"strings"
 	"unsafe"
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
@@ -68,11 +67,10 @@ func getWrapper(h C.handler) *Wrapper {
 }
 
 //export Connect
-func Connect(h C.handler, idsStr *C.cchar_t) C.uint {
+func Connect(h C.handler, idStr *C.cchar_t) C.uint {
 	wr := getWrapper(h)
-	goIdsStr := C.GoString((*C.char)(idsStr))
-	receivers := strings.Split(goIdsStr, ",")
-	if err := wr.Handler.Connect(receivers); err != nil {
+	goIdStr := C.GoString((*C.char)(idStr))
+	if err := wr.Handler.Connect(goIdStr); err != nil {
 		return proccessError(err)
 	}
 	return C.uint(handlers.SUCCESS)

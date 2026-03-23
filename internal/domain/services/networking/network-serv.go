@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"sync"
+
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
@@ -12,7 +14,6 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
-	"sync"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
@@ -35,7 +36,7 @@ const (
 )
 
 type NetworkingServ interface {
-	Connect(ctx context.Context, rids []string) error
+	Connect(ctx context.Context, rid string) error
 	Disconnect() error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
@@ -88,7 +89,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	return ns
 }
 
-func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
+func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	op := "networkingServ.Connect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
@@ -103,32 +104,62 @@ func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
 		}
 	}()
 	g, gCtx := errgroup.WithContext(mergeCtx)
-	for _, rid := range rids {
-		if rid == ns.userId {
-			errMsg := "cannot connect to himself"
-			log.Error(errMsg, userIdLog)
-			return errors.New(errMsg)
-		}
-		g.Go(func() error {
-			receiverIdLog := logger.Attr("receiverId", rid)
 
-			session, err := ns.createSession(gCtx, rid, true)
-			if err != nil {
-				log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
-				return err
-			}
-			estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
-			defer cancel()
-			if err := ns.establishConnection(estCtx, session); err != nil {
-				log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
-				ns.disconnectSession(session)
-				return err
-			}
-
-			return nil
-		})
-
+	if rid == ns.userId {
+		errMsg := "cannot connect to himself"
+		log.Error(errMsg, userIdLog)
+		return errors.New(errMsg)
 	}
+	g.Go(func() error {
+		receiverIdLog := logger.Attr("receiverId", rid)
+
+		session, err := ns.createSession(gCtx, rid, true)
+		if err != nil {
+			log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
+			return err
+		}
+		estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
+		defer cancel()
+		if err := ns.establishConnection(estCtx, session); err != nil {
+			log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session)
+			return err
+		}
+		return nil
+	})
+	receiversSessions, err := ns.signalingClient.GetSessionsById(ctx, rid)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	var resultReceiversSessions []string
+	err = json.Unmarshal(receiversSessions, &resultReceiversSessions)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	if len(resultReceiversSessions) > 0 {
+		for _, ss := range resultReceiversSessions {
+			g.Go(func() error {
+				receiverIdLog := logger.Attr("receiverId", ss)
+
+				session, err := ns.createSession(gCtx, ss, true)
+				if err != nil {
+					log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
+					return err
+				}
+				estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
+				defer cancel()
+				if err := ns.establishConnection(estCtx, session); err != nil {
+					log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
+					ns.disconnectSession(session)
+					return err
+				}
+				return nil
+			})
+		}
+	}
+
 	if err := g.Wait(); err != nil {
 		return errs.NewAppError(op, err)
 	}

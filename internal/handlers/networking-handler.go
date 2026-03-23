@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
+
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"os"
-	"strings"
 )
 
 type NetworkingHandler struct {
@@ -43,8 +44,7 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			m = strings.TrimSpace(m)
-			strs := strings.Split(m, " ")
-			if err := nh.Connect(strs); err != nil {
+			if err := nh.Connect(m); err != nil {
 				fmt.Println(err.Error())
 			}
 		case "sendMsg":
@@ -54,6 +54,7 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			m = strings.TrimSpace(m)
+
 			if err := nh.SendMessage(m); err != nil {
 				fmt.Println(err.Error())
 			}
@@ -107,10 +108,10 @@ func (nh *NetworkingHandler) Start() {
 	}
 }
 
-func (nh *NetworkingHandler) Connect(receiversIds []string) error {
+func (nh *NetworkingHandler) Connect(receiverId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
 	defer cancel()
-	if err := nh.NetworkingServ.Connect(ctx, receiversIds); err != nil {
+	if err := nh.NetworkingServ.Connect(ctx, receiverId); err != nil {
 		return processError(err)
 	}
 	return nil
@@ -184,4 +185,3 @@ func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
 	}
 	return sessions, nil
 }
-
