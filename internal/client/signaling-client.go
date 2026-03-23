@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"networking/config"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 	"sync"
 
 	"github.com/quic-go/quic-go"

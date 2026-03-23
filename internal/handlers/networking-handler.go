@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"networking/config"
-	"networking/internal/domain/services/networking"
-	"networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	"os"
 	"strings"
 )

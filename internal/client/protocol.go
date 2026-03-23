@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
 )
 
 const (

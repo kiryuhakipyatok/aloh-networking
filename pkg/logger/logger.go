@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"os"
 )
 

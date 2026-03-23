@@ -1,4 +1,4 @@
-module networking
+module github.com/kiryuhakipyatok/aloh-networking
 
 go 1.26
 

@@ -25,8 +25,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"networking/internal/app"
-	"networking/internal/handlers"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
 )
 
 type Wrapper struct {

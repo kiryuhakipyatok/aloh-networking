@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
 )
 
 const (

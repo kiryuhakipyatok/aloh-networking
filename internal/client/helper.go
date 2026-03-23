@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"networking/internal/utils"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/google/uuid"
 )
