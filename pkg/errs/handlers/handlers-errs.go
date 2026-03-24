@@ -1,9 +1,10 @@
-package handlers
+package errs
 
 import (
 	"errors"
 	"fmt"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 const (
@@ -64,7 +65,7 @@ func errorValidationMessage() ErrorCode {
 	return NewErrorMessage(VALIDATION_ERROR)
 }
 
-func processError(err error) error {
+func ProcessError(err error) error {
 	switch {
 	case errors.Is(err, errs.ErrAlreadyExistsBase):
 		return errorAlreadyExistsMessage()

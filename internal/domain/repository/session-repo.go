@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"sync"
 )
 

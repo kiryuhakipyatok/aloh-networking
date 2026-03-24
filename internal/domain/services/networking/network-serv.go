@@ -12,7 +12,7 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"golang.org/x/sync/errgroup"

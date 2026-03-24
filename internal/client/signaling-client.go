@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 	"sync"
 

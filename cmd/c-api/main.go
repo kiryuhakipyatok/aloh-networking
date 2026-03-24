@@ -26,6 +26,7 @@ import (
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
 
 type Wrapper struct {
@@ -73,7 +74,7 @@ func Connect(h C.handler, idStr *C.cchar_t) C.uint {
 	if err := wr.Handler.Connect(goIdStr); err != nil {
 		return proccessError(err)
 	}
-	return C.uint(handlers.SUCCESS)
+	return C.uint(errs.SUCCESS)
 }
 
 //export Disconnect
@@ -82,7 +83,7 @@ func Disconnect(h C.handler) C.uint {
 	if err := wr.Handler.Disconnect(); err != nil {
 		return proccessError(err)
 	}
-	return C.uint(handlers.SUCCESS)
+	return C.uint(errs.SUCCESS)
 }
 
 //export SendMessage
@@ -93,7 +94,7 @@ func SendMessage(h C.handler, msg *C.cchar_t) C.uint {
 	if err := wr.Handler.SendMessage(goMsg); err != nil {
 		return proccessError(err)
 	}
-	return C.uint(handlers.SUCCESS)
+	return C.uint(errs.SUCCESS)
 }
 
 //export SendVoice
@@ -103,7 +104,7 @@ func SendVoice(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 	if err := wr.Handler.SendVoice(goData); err != nil {
 		return proccessError(err)
 	}
-	return C.uint(handlers.SUCCESS)
+	return C.uint(errs.SUCCESS)
 }
 
 //export SendVideo
@@ -113,7 +114,7 @@ func SendVideo(h C.handler, data unsafe.Pointer, length C.int) C.uint {
 	if err := wr.Handler.SendVideo(goData); err != nil {
 		return proccessError(err)
 	}
-	return C.uint(handlers.SUCCESS)
+	return C.uint(errs.SUCCESS)
 }
 
 //export RegisterOnChat
@@ -185,7 +186,7 @@ func FetchOnline(h C.handler) (**C.char, C.size_t, C.uint) {
 	for i, s := range online {
 		cArraySlice[i] = C.CString(s)
 	}
-	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(handlers.SUCCESS)
+	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(errs.SUCCESS)
 }
 
 //export FetchSessions
@@ -204,13 +205,13 @@ func FetchSessions(h C.handler, id *C.cchar_t) (**C.char, C.size_t, C.uint) {
 	for i, s := range sessions {
 		cArraySlice[i] = C.CString(s)
 	}
-	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(handlers.SUCCESS)
+	return (**C.char)(cArrayPtr), C.size_t(l), C.uint(errs.SUCCESS)
 }
 
 func proccessError(err error) C.uint {
 	var (
-		ae   handlers.ErrorCode
-		code uint = handlers.INTERNAL_ERROR
+		ae   errs.ErrorCode
+		code uint = errs.INTERNAL_ERROR
 	)
 	if errors.As(err, &ae) {
 		code = ae.Code
