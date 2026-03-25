@@ -26,7 +26,7 @@ import (
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
 
 type Wrapper struct {
@@ -35,12 +35,14 @@ type Wrapper struct {
 }
 
 //export NewHandler
-func NewHandler(userID *C.cchar_t, logPath *C.cchar_t) C.handler {
+func NewHandler(userID *C.cchar_t, logPath *C.cchar_t) (C.handler, C.uint) {
 	goUserID := C.GoString((*C.char)(userID))
 	goLogPath := C.GoString((*C.char)(logPath))
 
-	service, cancel, cfg := app.Init(goUserID, goLogPath)
-
+	service, cancel, cfg, err := app.Init(goUserID, goLogPath)
+	if err != nil {
+		return C.uintptr_t(cgo.NewHandle(0)), proccessError(err)
+	}
 	nh := handlers.NewNetworkingHandler(service, cfg)
 
 	wr := &Wrapper{
@@ -48,7 +50,7 @@ func NewHandler(userID *C.cchar_t, logPath *C.cchar_t) C.handler {
 		Cancel:  cancel,
 	}
 
-	return C.uintptr_t(cgo.NewHandle(wr))
+	return C.uintptr_t(cgo.NewHandle(wr)), C.uint(errs.SUCCESS)
 }
 
 //export DeleteHandler

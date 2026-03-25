@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/kiryuhakipyatok/aloh-networking/config"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 	"sync"
+
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/quic-go/quic-go"
 )
@@ -36,7 +37,8 @@ type signalingClient struct {
 	password         string
 }
 
-func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
+func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) (SignalingClient, error) {
+	op := "signalingClient.NewSignalingClient"
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -53,7 +55,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	addr := fmt.Sprintf("%s:%s", cfg.Address, cfg.Port)
 	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, quicConf)
 	if err != nil {
-		panic(fmt.Errorf("failed to dial quic signaling: %w", err))
+		return nil, errs.NewAppError(op, err)
 	}
 	sc := &signalingClient{
 		conn:        conn,
@@ -65,13 +67,12 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	defer cancel()
 	if err := sc.registerConnect(regCtx, id); err != nil {
-		fmt.Println(err)
-		panic(fmt.Errorf("failed to register connect: %w", err))
+		return nil, errs.NewAppError(op, err)
 	}
 	go sc.sendMsg()
 	go sc.receiveSDP()
 	go sc.receiveResponses()
-	return sc
+	return sc, nil
 }
 
 func (sc *signalingClient) Close(code uint, desc string) error {

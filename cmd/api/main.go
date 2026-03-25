@@ -12,13 +12,16 @@ type Netwoking struct {
 	Cancel  context.CancelFunc
 }
 
-func NewNetworking(userId, logPath string) Netwoking {
-	service, cancel, cfg := app.Init(userId, logPath)
+func NewNetworking(userId, logPath string) (*Netwoking, error) {
+	service, cancel, cfg, err := app.Init(userId, logPath)
+	if err != nil {
+		return nil, err
+	}
 	nh := handlers.NewNetworkingHandler(service, cfg)
-	return Netwoking{
+	return &Netwoking{
 		Handler: nh,
 		Cancel:  cancel,
-	}
+	}, nil
 }
 
 func (n *Netwoking) Delete() {

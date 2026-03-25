@@ -4,16 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
 
 	"github.com/joho/godotenv"
 )
@@ -34,7 +35,7 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
+func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc, config.Handler, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
@@ -49,7 +50,11 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	signalingClient := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
+	signalingClient, err := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
+	if err != nil {
+		log.Error("failed to create signaling client", logger.Err(err))
+		return nil, nil, config.Handler{}, err
+	}
 	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 
 	log.Info("library initialized for user: " + userID)
@@ -64,14 +69,17 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 		close(sendSDP)
 		close(receiveSDP)
 		log.Info("library stopped")
-	}, cfg.Handler
+	}, cfg.Handler, nil
 }
 
 func Run() {
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
-	networkingServ, close, handlerCfg := Init(*id, "")
+	networkingServ, close, handlerCfg, err := Init(*id, "")
+	if err != nil {
+		panic(fmt.Errorf("failed to init networking service: %w", err))
+	}
 
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
