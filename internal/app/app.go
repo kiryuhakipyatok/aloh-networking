@@ -53,6 +53,7 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 	signalingClient, err := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
 	if err != nil {
 		log.Error("failed to create signaling client", logger.Err(err))
+		cancel()
 		return nil, nil, config.Handler{}, err
 	}
 	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
