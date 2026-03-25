@@ -5,6 +5,7 @@ import (
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
 
 type Netwoking struct {
@@ -15,7 +16,7 @@ type Netwoking struct {
 func NewNetworking(userId, logPath string) (*Netwoking, error) {
 	service, cancel, cfg, err := app.Init(userId, logPath)
 	if err != nil {
-		return nil, err
+		return nil, errs.ProcessError(err)
 	}
 	nh := handlers.NewNetworkingHandler(service, cfg)
 	return &Netwoking{
