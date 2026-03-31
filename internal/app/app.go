@@ -82,7 +82,7 @@ func Run() {
 	flag.Parse()
 
 	networkingServ, close, handlerCfg := Init(*id)
-
+	fmt.Println(handlerCfg)
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
 	go networkingHandler.Start()
