@@ -88,6 +88,12 @@ func Run() {
 	go networkingHandler.Start()
 
 	ctx := context.Background()
+
+	fmt.Println(handlerCfg.APIKey)
+	fmt.Println(handlerCfg.APIKey)
+	fmt.Println(handlerCfg.APIKey)
+	fmt.Println(handlerCfg.APIKey)
+
 	clientCfg := &genai.ClientConfig{
 		APIKey: handlerCfg.APIKey,
 	}
