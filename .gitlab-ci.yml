@@ -18,6 +18,7 @@ deploy-job:
   stage: deploy 
   script:
     - cp $ENV_FILE .env
+    - echo .env
     - docker-compose down --remove-orphans
     - docker-compose up -d --build
     - sleep 5

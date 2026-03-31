@@ -32,7 +32,7 @@ func loadEnv() error {
 	if err := godotenv.Load(".env"); err == nil {
 		return nil
 	}
-	return nil
+	return err
 }
 
 func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
@@ -89,11 +89,6 @@ func Run() {
 
 	ctx := context.Background()
 
-	fmt.Println(handlerCfg.APIKey)
-	fmt.Println(handlerCfg.APIKey)
-	fmt.Println(handlerCfg.APIKey)
-	fmt.Println(handlerCfg.APIKey)
-
 	clientCfg := &genai.ClientConfig{
 		APIKey: handlerCfg.APIKey,
 	}
@@ -121,16 +116,16 @@ func Run() {
 		}
 
 	})
-	networkingHandler.OnVideo(func(id string, data []byte) {
-		if err := networkingHandler.SendVideo(data); err != nil {
-			fmt.Println(err)
-		}
-	})
-	networkingHandler.OnVoice(func(id string, data []byte) {
-		if err := networkingHandler.SendVoice(data); err != nil {
-			fmt.Println(err)
-		}
-	})
+	// networkingHandler.OnVideo(func(id string, data []byte) {
+	// 	if err := networkingHandler.SendVideo(data); err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// })
+	// networkingHandler.OnVoice(func(id string, data []byte) {
+	// 	if err := networkingHandler.SendVoice(data); err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// })
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
