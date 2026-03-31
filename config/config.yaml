@@ -37,3 +37,4 @@ handler:
   sendVoiceTimeout: 10s
   connectTimeout: 10s
   fetchOnlineTimeout: 10s
+  apiKey: "${API_KEY}"

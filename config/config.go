@@ -65,6 +65,7 @@ type Handler struct {
 	SendVoiceTimeout   time.Duration `mapstructure:"sendVoiceTimeout"`
 	ConnectTimeout     time.Duration `mapstructure:"connectTimeout"`
 	FetchOnlineTimeout time.Duration `mapstructure:"fetchOnlineTimeout"`
+	APIKey             string        `mapstructure:"apiKey"`
 }
 
 func NewConfig() *Config {

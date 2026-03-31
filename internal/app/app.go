@@ -89,7 +89,7 @@ func Run() {
 
 	ctx := context.Background()
 	clientCfg := &genai.ClientConfig{
-		APIKey: "AIzaSyDhPDckohaUJZj727j-Ttp_CYOlRE60pxU",
+		APIKey: handlerCfg.APIKey,
 	}
 	client, err := genai.NewClient(ctx, clientCfg)
 	if err != nil {
