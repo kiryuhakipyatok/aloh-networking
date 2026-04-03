@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"networking/internal/utils"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/google/uuid"
 )
@@ -41,7 +41,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 	}
 	msg := Message{
 		Id:   uuid.NewString(),
-		Type: utils.Uint8ToPtr(REG_TYPE),
+		Type: new(uint8(REG_TYPE)),
 		Data: json.RawMessage(dataReg),
 	}
 	if err := encoder.Encode(msg); err != nil {
@@ -174,7 +174,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 	defer sc.pendingResponses.Delete(msgId)
 	msg := Message{
 		Id:   msgId,
-		Type: utils.Uint8ToPtr(msgType),
+		Type: new(uint8(msgType)),
 		Data: data,
 	}
 	payload, err := sc.checkResp(ctx, checkConf{typee: PAYLOAD_SUCCESS, op: op, msg: msg, respChan: respChan})
@@ -200,7 +200,7 @@ func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data [
 	defer sc.pendingResponses.Delete(msgId)
 	msg := Message{
 		Id:   msgId,
-		Type: utils.Uint8ToPtr(STREAM_TYPE),
+		Type: new(uint8(STREAM_TYPE)),
 		Data: sendData,
 	}
 	_, err = sc.checkResp(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
@@ -215,7 +215,7 @@ func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data 
 	defer sc.pendingResponses.Delete(msgId)
 	msg := Message{
 		Id:   msgId,
-		Type: utils.Uint8ToPtr(msgType),
+		Type: new(uint8(msgType)),
 		Data: data,
 	}
 	_, err := sc.checkResp(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})

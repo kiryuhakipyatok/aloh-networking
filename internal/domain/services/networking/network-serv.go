@@ -5,14 +5,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"networking/config"
-	"networking/internal/client"
-	"networking/internal/domain/models"
-	"networking/internal/domain/repository"
-	"networking/internal/utils"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
 	"sync"
+
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
@@ -35,7 +36,7 @@ const (
 )
 
 type NetworkingServ interface {
-	Connect(ctx context.Context, rids []string) error
+	Connect(ctx context.Context, rid string) error
 	Disconnect() error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
@@ -47,15 +48,17 @@ type NetworkingServ interface {
 }
 
 type networkingServ struct {
-	userId          string
-	signalingClient client.SignalingClient
-	sessionRepo     repository.SessionRepository
-	receiveSDPs     chan client.ReplyMessage
-	sdpsGroup       singleflight.Group
-	logger          *logger.Logger
-	cfg             config.Networking
-	closeCtx        context.Context
-	tlsConf         *tls.Config
+	userId                  string
+	signalingClient         client.SignalingClient
+	sessionRepo             repository.SessionRepository
+	receiveSDPs             chan client.ReplyMessage
+	sdpsGroup               singleflight.Group
+	logger                  *logger.Logger
+	cfg                     config.Networking
+	closeCtx                context.Context
+	tlsConf                 *tls.Config
+	sendDatagramLogCount    uint
+	receiveDatagramLogCount uint
 	handlers
 }
 
@@ -63,15 +66,17 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	closeCtx, cancel := context.WithCancel(ctx)
 	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
 	ns := &networkingServ{
-		userId:          id,
-		signalingClient: sc,
-		sessionRepo:     sr,
-		receiveSDPs:     receiveSDPs,
-		sdpsGroup:       singleflight.Group{},
-		cfg:             cfg,
-		logger:          l,
-		closeCtx:        closeCtx,
-		tlsConf:         tlsConf,
+		userId:                  id,
+		signalingClient:         sc,
+		sessionRepo:             sr,
+		receiveSDPs:             receiveSDPs,
+		sdpsGroup:               singleflight.Group{},
+		cfg:                     cfg,
+		logger:                  l,
+		closeCtx:                closeCtx,
+		tlsConf:                 tlsConf,
+		sendDatagramLogCount:    0,
+		receiveDatagramLogCount: 1,
 	}
 
 	go func() {
@@ -84,7 +89,7 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	return ns
 }
 
-func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
+func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	op := "networkingServ.Connect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
@@ -99,32 +104,62 @@ func (ns *networkingServ) Connect(ctx context.Context, rids []string) error {
 		}
 	}()
 	g, gCtx := errgroup.WithContext(mergeCtx)
-	for _, rid := range rids {
-		if rid == ns.userId {
-			errMsg := "cannot connect to himself"
-			log.Error(errMsg, userIdLog)
-			return errors.New(errMsg)
-		}
-		g.Go(func() error {
-			receiverIdLog := logger.Attr("receiverId", rid)
 
-			session, err := ns.createSession(gCtx, rid, true)
-			if err != nil {
-				log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
-				return err
-			}
-			estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
-			defer cancel()
-			if err := ns.establishConnection(estCtx, session); err != nil {
-				log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
-				ns.disconnectSession(session)
-				return err
-			}
-
-			return nil
-		})
-
+	if rid == ns.userId {
+		errMsg := "cannot connect to himself"
+		log.Error(errMsg, userIdLog)
+		return errors.New(errMsg)
 	}
+	g.Go(func() error {
+		receiverIdLog := logger.Attr("receiverId", rid)
+
+		session, err := ns.createSession(gCtx, rid, true)
+		if err != nil {
+			log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
+			return err
+		}
+		estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
+		defer cancel()
+		if err := ns.establishConnection(estCtx, session); err != nil {
+			log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session)
+			return err
+		}
+		return nil
+	})
+	receiversSessions, err := ns.signalingClient.GetSessionsById(ctx, rid)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	var resultReceiversSessions []string
+	err = json.Unmarshal(receiversSessions, &resultReceiversSessions)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	if len(resultReceiversSessions) > 0 {
+		for _, ss := range resultReceiversSessions {
+			g.Go(func() error {
+				receiverIdLog := logger.Attr("receiverId", ss)
+
+				session, err := ns.createSession(gCtx, ss, true)
+				if err != nil {
+					log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
+					return err
+				}
+				estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
+				defer cancel()
+				if err := ns.establishConnection(estCtx, session); err != nil {
+					log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
+					ns.disconnectSession(session)
+					return err
+				}
+				return nil
+			})
+		}
+	}
+
 	if err := g.Wait(); err != nil {
 		return errs.NewAppError(op, err)
 	}
@@ -159,7 +194,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", ns.userId)
-	payload:=data[1:]
+	payload := data[1:]
 	msgLog := logger.Attr("msg", string(payload))
 	msgLenLog := logger.Attr("msgLen", len(payload))
 	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog, msgLog)
@@ -211,20 +246,22 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 }
 
 func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
+	ns.sendDatagramLogCount++
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
 	userIdLog := logger.Attr("userId", ns.userId)
 	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
-	log.Info("datagram sending", sendDatagramLog...)
+	sparseLog.Info(ns.sendDatagramLogCount, "datagram sending", sendDatagramLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		log.Info("failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
+		sparseLog.Error(ns.sendDatagramLogCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		log.Info("zero sessions", sendDatagramLog...)
+		sparseLog.Info(ns.sendDatagramLogCount, "zero sessions", sendDatagramLog...)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -234,16 +271,16 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 				recIdLog := logger.Attr("receiverId", s.UserID)
 
 				if err := s.Conn.SendDatagram(data); err != nil {
-					log.Info("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					sparseLog.Error(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
+				sparseLog.Info(ns.sendDatagramLogCount, "datagram sent", sendDatagramLog...)
 
 			}(s)
 		}
 	}
-	log.Info("datagram sent", sendDatagramLog...)
-	return nil
 
+	return nil
 }
 
 func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {

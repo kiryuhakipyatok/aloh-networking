@@ -26,9 +26,6 @@ type App struct {
 	Env            string `mapstructure:"env"`
 	ReceiveSDPSize int    `mapstructure:"receiveSDPSize"`
 	SendSDPSize    int    `mapstructure:"sendSDPSize"`
-	ConfigPath     string `mapstructure:"configPath"`
-	ConfigName     string `mapstructure:"configName"`
-	LogPath        string `mapstructure:"logPath"`
 }
 
 type Signaling struct {
@@ -57,6 +54,7 @@ type Networking struct {
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
+	DatagramLogTargetCount uint          `mapstructure:"datagramLogTargetCount"`
 }
 
 type Handler struct {

@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
-	"networking/internal/domain/models"
-	"networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"sync"
 )
 

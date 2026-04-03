@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"networking/config"
-	"networking/internal/domain/services/networking"
-	"networking/internal/utils"
 	"os"
 	"strings"
+
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
 
 type NetworkingHandler struct {
@@ -43,8 +45,7 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			m = strings.TrimSpace(m)
-			strs := strings.Split(m, " ")
-			if err := nh.Connect(strs); err != nil {
+			if err := nh.Connect(m); err != nil {
 				fmt.Println(err.Error())
 			}
 		case "sendMsg":
@@ -54,6 +55,7 @@ func (nh *NetworkingHandler) Start() {
 				break
 			}
 			m = strings.TrimSpace(m)
+
 			if err := nh.SendMessage(m); err != nil {
 				fmt.Println(err.Error())
 			}
@@ -107,18 +109,18 @@ func (nh *NetworkingHandler) Start() {
 	}
 }
 
-func (nh *NetworkingHandler) Connect(receiversIds []string) error {
+func (nh *NetworkingHandler) Connect(receiverId string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
 	defer cancel()
-	if err := nh.NetworkingServ.Connect(ctx, receiversIds); err != nil {
-		return processError(err)
+	if err := nh.NetworkingServ.Connect(ctx, receiverId); err != nil {
+		return errs.ProcessError(err)
 	}
 	return nil
 }
 
 func (nh *NetworkingHandler) Disconnect() error {
 	if err := nh.NetworkingServ.Disconnect(); err != nil {
-		return processError(err)
+		return errs.ProcessError(err)
 	}
 	return nil
 }
@@ -128,7 +130,7 @@ func (nh *NetworkingHandler) SendMessage(msg string) error {
 	defer cancel()
 	data := utils.SetFirstByte(networking.CHAT, []byte(msg))
 	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
-		return processError(err)
+		return errs.ProcessError(err)
 	}
 	return nil
 }
@@ -138,7 +140,7 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	defer cancel()
 	data = utils.SetFirstByte(networking.VOICE, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		return processError(err)
+		return errs.ProcessError(err)
 	}
 	return nil
 }
@@ -148,7 +150,7 @@ func (nh *NetworkingHandler) SendVideo(data []byte) error {
 	defer cancel()
 	data = utils.SetFirstByte(networking.VIDEO, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		return processError(err)
+		return errs.ProcessError(err)
 	}
 	return nil
 }
@@ -170,7 +172,7 @@ func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
 	defer cancel()
 	online, err := nh.NetworkingServ.FetchOnline(ctx)
 	if err != nil {
-		return nil, processError(err)
+		return nil, errs.ProcessError(err)
 	}
 	return online, nil
 }
@@ -180,7 +182,7 @@ func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
 	defer cancel()
 	sessions, err := nh.NetworkingServ.FetchSessionsById(ctx, id)
 	if err != nil {
-		return nil, processError(err)
+		return nil, errs.ProcessError(err)
 	}
 	return sessions, nil
 }

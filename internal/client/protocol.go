@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"networking/pkg/errs"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 const (
@@ -13,6 +13,7 @@ const (
 	GET_ONLINE_TYPE
 	ADD_IN_SESSION
 	GET_SESSIONS_BY_ID
+	DELETE_FROM_SESSION
 )
 
 const (

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"networking/internal/client"
-	"networking/internal/domain/models"
-	"networking/internal/utils"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 	"strings"
 	"sync"
 	"time"
@@ -64,6 +64,9 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
+		if err:=ns.signalingClient.DeleteFromSession(context.Background(), session.UserID);err!=nil{
+			log.Error("failed to delete from session", logger.Err(err), userIdLog)
+		}
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		} else {
@@ -84,7 +87,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	default:
 	}
 	log.Info("creating new session...", ridLog)
-	if err := ns.signalingClient.AddSession(ctx, rid); err != nil {
+	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
 		log.Error("failed to add session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
@@ -124,9 +127,9 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Error("failed to get local user credentials", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	creds := []byte(fmt.Sprintf("%s %s", localFrag, localPwd))
+	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
 	sdp := utils.SetFirstByte(CREDS, creds)
-	log.Info("sdp (credentials) creating", ridLog)
+	log.Debug("sdp (credentials) creating", ridLog)
 	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
 		log.Error("failed to create new sdp (credentials)", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -141,7 +144,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			defer cancel()
 			candidate := []byte(c.Marshal())
 			sdp := utils.SetFirstByte(CANDIDATE, candidate)
-			log.Info("sdp (candidate) creating", ridLog)
+			log.Debug("sdp (candidate) creating", ridLog)
 			if err := ns.signalingClient.NewSDP(sdpCtx, sdp, []string{rid}); err != nil {
 				log.Error("failed to create new sdp (candidate)", logger.Err(err), ridLog)
 			}
@@ -163,7 +166,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ns.disconnectSession(session)
 		}
 	}()
-	log.Info("session saving...", ridLog)
+	log.Debug("session saving...", ridLog)
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
@@ -190,7 +193,7 @@ func (ns *networkingServ) receiveConnects() error {
 			defer cancel()
 			senderId := sdp.Sender
 			senderIdLog := logger.Attr("senderId", senderId)
-			log.Info("received new sdp", senderIdLog)
+			log.Debug("received new sdp", senderIdLog)
 			v, err, _ := ns.sdpsGroup.Do(sdp.Sender, func() (any, error) {
 				return ns.getSession(ctx, senderId)
 			})
@@ -205,7 +208,7 @@ func (ns *networkingServ) receiveConnects() error {
 			}
 			switch sdp.Payload[0] {
 			case CREDS:
-				log.Info("credentials processing", senderIdLog)
+				log.Debug("credentials processing", senderIdLog)
 				creds := strings.Split(string(sdp.Payload[1:]), " ")
 				if len(creds) < 2 {
 					return
@@ -220,10 +223,10 @@ func (ns *networkingServ) receiveConnects() error {
 				case session.CredsChan <- struct{}{}:
 				default:
 				}
-				log.Info("credentials processed", senderIdLog)
+				log.Debug("credentials processed", senderIdLog)
 
 			case CANDIDATE:
-				log.Info("candidate processing", senderIdLog)
+				log.Debug("candidate processing", senderIdLog)
 				c, err := ice.UnmarshalCandidate(string(sdp.Payload[1:]))
 				if err != nil {
 					log.Error("failed to unmarshal candidate", logger.Err(err), senderIdLog)
@@ -233,7 +236,7 @@ func (ns *networkingServ) receiveConnects() error {
 					log.Error("failed to add remote candidate", logger.Err(err), senderIdLog)
 					return
 				}
-				log.Info("candidate processed", senderIdLog)
+				log.Debug("candidate processed", senderIdLog)
 			}
 		}(sdp)
 	}
@@ -308,7 +311,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 	switch session.IsInitiator {
 	case true:
-		log.Info("dialing agent connection", userIdLog)
+		log.Debug("dialing agent connection", userIdLog)
 		conn, err = session.Agent.Dial(ctx, remoteUfrag, remotePwd)
 		if err != nil {
 			fmt.Println(ctx.Err())
@@ -384,26 +387,17 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		ns.disconnectSession(session)
 		log.Info("connection handling stopped")
 	}()
-	go func() {
-		for {
-			data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
-			if err != nil {
-				if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-					ns.disconnectSession(session)
-					return
-				}
-				log.Error("failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
-				return
-			}
-			if len(data) < 1 {
-				log.Error("received empty data", remoteAddrLog, localAddrLog)
-				continue
-			}
-			msgLog := logger.Attr("msgLen", len(data[1:]))
-			log.Info("new datagram received", remoteAddrLog, localAddrLog, msgLog)
-			ns.processData(session.UserID, data)
-		}
-	}()
+	go ns.receiveDatagrams(session)
+	ns.receiveStreams(session)
+}
+
+func (ns *networkingServ) receiveStreams(session *models.Session) {
+	op := "networkingServ.receiveStreams"
+	log := ns.logger.AddOp(op)
+	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
+	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
+	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
+	log.Info("streams receiving...", connLog...)
 	for {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
@@ -427,6 +421,36 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
 		log.Info("new msg from stream received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
 		stream.CancelRead(0)
+		ns.processData(session.UserID, data)
+	}
+}
+
+func (ns *networkingServ) receiveDatagrams(session *models.Session) {
+	op := "networkingServ.receiveDatagrams"
+	log := ns.logger.AddOp(op)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
+	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
+	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
+	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
+	sparseLog.Info(ns.receiveDatagramLogCount, "datagram receiving...", connLog...)
+	ns.receiveDatagramLogCount = 0
+	for {
+		ns.receiveDatagramLogCount++
+		data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
+		if err != nil {
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session)
+				return
+			}
+			sparseLog.Error(ns.receiveDatagramLogCount, "failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
+			return
+		}
+		if len(data) < 1 {
+			sparseLog.Error(ns.receiveDatagramLogCount, "received empty data", remoteAddrLog, localAddrLog)
+			continue
+		}
+		msgLog := logger.Attr("msgLen", len(data[1:]))
+		sparseLog.Info(ns.receiveDatagramLogCount, "new datagram received", remoteAddrLog, localAddrLog, msgLog)
 		ns.processData(session.UserID, data)
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"os"
 )
 
@@ -18,14 +18,23 @@ const (
 	prod  = "prod"
 )
 
-func NewLogger(acfg config.App) *Logger {
+func NewLogger(acfg config.App, logPath string) *Logger {
 	var log *slog.Logger
 	env := acfg.Env
 	writer := io.Writer(os.Stdout)
-	if acfg.LogPath != "" {
-		logFile, err := os.OpenFile(acfg.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if logPath != "" {
+		logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
 			panic(fmt.Errorf("failed to open log file: %w", err))
+		}
+		stat, err := logFile.Stat()
+		if err != nil {
+			panic(fmt.Errorf("failed to get log file stat: %w", err))
+		}
+		if stat.Size() > 0 {
+			if err := logFile.Truncate(0); err != nil {
+				panic(fmt.Errorf("failed to clear log file: %w", err))
+			}
 		}
 		writer = io.Writer(logFile)
 	}

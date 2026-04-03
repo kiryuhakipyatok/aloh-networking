@@ -32,11 +32,12 @@ add_custom_command(
         "CGO_ENABLED=1"
         "GOOS=${GO_TARGET_OS}"
         "GOARCH=amd64"
+        "CGO_LDFLAGS=${CLANG_TARGET_FLAG}"
 
     "${GO_EXECUTABLE}" build
             -buildmode=c-archive
             -o "${ALOH_NETWORKING_LIB}"
-            -ldflags "-extldflags '-static ${CLANG_TARGET_FLAG}'"
+            -ldflags "-extldflags '-static'"
 
             "${ALOH_NETWORKING_ENTRY}"
 )

@@ -5,10 +5,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"networking/config"
-	"networking/pkg/errs"
-	"networking/pkg/logger"
 	"sync"
+
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/quic-go/quic-go"
 )
@@ -18,7 +19,8 @@ type SignalingClient interface {
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 	GetOnline(ctx context.Context) ([]byte, error)
 	GetSessionsById(ctx context.Context, id string) ([]byte, error)
-	AddSession(ctx context.Context, id string) error
+	AddInSession(ctx context.Context, id string) error
+	DeleteFromSession(ctx context.Context, id string) error
 	GetCreds(ctx context.Context) (string, string, error)
 }
 
@@ -36,7 +38,8 @@ type signalingClient struct {
 	password         string
 }
 
-func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) SignalingClient {
+func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) (SignalingClient, error) {
+	op := "signalingClient.NewSignalingClient"
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -53,7 +56,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	addr := fmt.Sprintf("%s:%s", cfg.Address, cfg.Port)
 	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, quicConf)
 	if err != nil {
-		panic(fmt.Errorf("failed to dial quic signaling: %w", err))
+		return nil, errs.NewAppError(op, err)
 	}
 	sc := &signalingClient{
 		conn:        conn,
@@ -65,13 +68,12 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	defer cancel()
 	if err := sc.registerConnect(regCtx, id); err != nil {
-		fmt.Println(err)
-		panic(fmt.Errorf("failed to register connect: %w", err))
+		return nil, errs.NewAppError(op, err)
 	}
 	go sc.sendMsg()
 	go sc.receiveSDP()
 	go sc.receiveResponses()
-	return sc
+	return sc, nil
 }
 
 func (sc *signalingClient) Close(code uint, desc string) error {
@@ -148,10 +150,10 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 	return sessions, nil
 }
 
-func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
+func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
 
 	var (
-		op  = "signalingClient.GetSessionsById"
+		op  = "signalingClient.AddInSession"
 		log = sc.logger.AddOp(op)
 	)
 	log.Info("adding session to signaling...")
@@ -164,6 +166,27 @@ func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
 	}
 
 	if err := sc.sendCommand(ctx, ADD_IN_SESSION, data); err != nil {
+		log.Error("failed to send command", logger.Err(err))
+		return errs.NewAppError(op, err)
+	}
+	return nil
+}
+
+func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) error {
+	var (
+		op  = "signalingClient.DeleteFromSession"
+		log = sc.logger.AddOp(op)
+	)
+	log.Info("deleting user from session to signaling...")
+	userId := UserId{
+		ID: id,
+	}
+	data, err := json.Marshal(userId)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	if err := sc.sendCommand(ctx, DELETE_FROM_SESSION, data); err != nil {
 		log.Error("failed to send command", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}

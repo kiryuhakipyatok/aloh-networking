@@ -4,16 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"networking/internal/client"
-	"networking/config"
-	"networking/internal/domain/repository"
-	"networking/internal/domain/services/networking"
-	"networking/internal/handlers"
-	"networking/pkg/logger"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/joho/godotenv"
 	"google.golang.org/genai"
@@ -35,12 +36,12 @@ func loadEnv() error {
 	return err
 }
 
-func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.Handler) {
+func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc, config.Handler, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
 	cfg := config.NewConfig()
-	log := logger.NewLogger(cfg.App)
+	log := logger.NewLogger(cfg.App, logPath)
 	log.Info("initializing library...")
 
 	sessionRepo := repository.NewSessionRepository()
@@ -50,7 +51,12 @@ func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	signalingClient := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
+	signalingClient, err := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
+	if err != nil {
+		log.Error("failed to create signaling client", logger.Err(err))
+		cancel()
+		return nil, nil, config.Handler{}, err
+	}
 	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 
 	log.Info("library initialized for user: " + userID)
@@ -65,7 +71,7 @@ func Init(userID string) (networking.NetworkingServ, context.CancelFunc, config.
 		close(sendSDP)
 		close(receiveSDP)
 		log.Info("library stopped")
-	}, cfg.Handler
+	}, cfg.Handler, nil
 }
 
 func Run() {
@@ -82,7 +88,7 @@ func Run() {
 	flag.Parse()
 
 	networkingServ, close, handlerCfg := Init(*id)
-	fmt.Println(handlerCfg)
+
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
 	go networkingHandler.Start()

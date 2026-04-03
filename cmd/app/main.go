@@ -1,7 +1,7 @@
 package main
 
 import (
-	"networking/internal/app"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 )
 
 func main() {
