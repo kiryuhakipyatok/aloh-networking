@@ -87,7 +87,10 @@ func Run() {
 	id := flag.String("id", "123", "user id")
 	flag.Parse()
 
-	networkingServ, close, handlerCfg := Init(*id)
+	networkingServ, close, handlerCfg, err := Init(*id, "")
+	if err != nil {
+		panic(fmt.Errorf("failed to init networking service: %w", err))
+	}
 
 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
@@ -114,7 +117,7 @@ func Run() {
 		if err != nil {
 			res = err.Error()
 			fmt.Println(err)
-		}else{
+		} else {
 			res = result.Text()
 		}
 		if err := networkingHandler.SendMessage(res); err != nil {
