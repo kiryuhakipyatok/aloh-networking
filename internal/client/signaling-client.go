@@ -19,7 +19,8 @@ type SignalingClient interface {
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 	GetOnline(ctx context.Context) ([]byte, error)
 	GetSessionsById(ctx context.Context, id string) ([]byte, error)
-	AddSession(ctx context.Context, id string) error
+	AddInSession(ctx context.Context, id string) error
+	DeleteFromSession(ctx context.Context, id string) error
 	GetCreds(ctx context.Context) (string, string, error)
 }
 
@@ -149,10 +150,10 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 	return sessions, nil
 }
 
-func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
+func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
 
 	var (
-		op  = "signalingClient.GetSessionsById"
+		op  = "signalingClient.AddInSession"
 		log = sc.logger.AddOp(op)
 	)
 	log.Info("adding session to signaling...")
@@ -165,6 +166,27 @@ func (sc *signalingClient) AddSession(ctx context.Context, id string) error {
 	}
 
 	if err := sc.sendCommand(ctx, ADD_IN_SESSION, data); err != nil {
+		log.Error("failed to send command", logger.Err(err))
+		return errs.NewAppError(op, err)
+	}
+	return nil
+}
+
+func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) error {
+	var (
+		op  = "signalingClient.DeleteFromSession"
+		log = sc.logger.AddOp(op)
+	)
+	log.Info("deleting user from session to signaling...")
+	userId := UserId{
+		ID: id,
+	}
+	data, err := json.Marshal(userId)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	if err := sc.sendCommand(ctx, DELETE_FROM_SESSION, data); err != nil {
 		log.Error("failed to send command", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}

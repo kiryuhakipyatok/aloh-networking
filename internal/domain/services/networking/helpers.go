@@ -64,6 +64,9 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
+		if err:=ns.signalingClient.DeleteFromSession(context.Background(), session.UserID);err!=nil{
+			log.Error("failed to delete from session", logger.Err(err), userIdLog)
+		}
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		} else {
@@ -84,7 +87,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	default:
 	}
 	log.Info("creating new session...", ridLog)
-	if err := ns.signalingClient.AddSession(ctx, rid); err != nil {
+	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
 		log.Error("failed to add session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
 	}
