@@ -88,7 +88,10 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	default:
 	}
 	log.Info("creating new session...", ridLog)
-
+	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
+		log.Error("failed to add session", logger.Err(err), ridLog)
+		return nil, errs.NewAppError(op, err)
+	}
 	username, password, err := ns.signalingClient.GetCreds(ctx)
 	if err != nil {
 		log.Error("failed to fetch creds", logger.Err(err), ridLog)
@@ -165,10 +168,6 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		}
 	}()
 	log.Debug("session saving...", ridLog)
-	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
-		log.Error("failed to add session", logger.Err(err), ridLog)
-		return nil, errs.NewAppError(op, err)
-	}
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
