@@ -6,14 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/pion/ice/v2"
 	"github.com/pion/stun"
@@ -64,7 +65,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
-		if err:=ns.signalingClient.DeleteFromSession(context.Background(), session.UserID);err!=nil{
+		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
 		}
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID); err != nil {
@@ -87,10 +88,6 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	default:
 	}
 	log.Info("creating new session...", ridLog)
-	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
-		log.Error("failed to add session", logger.Err(err), ridLog)
-		return nil, errs.NewAppError(op, err)
-	}
 
 	username, password, err := ns.signalingClient.GetCreds(ctx)
 	if err != nil {
@@ -168,6 +165,10 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		}
 	}()
 	log.Debug("session saving...", ridLog)
+	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
+		log.Error("failed to add session", logger.Err(err), ridLog)
+		return nil, errs.NewAppError(op, err)
+	}
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
 		log.Error("failed to save session", logger.Err(err), ridLog)
 		return nil, errs.NewAppError(op, err)
