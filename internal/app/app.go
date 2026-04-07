@@ -63,7 +63,9 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 	return networkingService, func() {
 		log.Info("stopping library...")
 		cancel()
-		networkingService.Disconnect()
+		if err := networkingService.Disconnect(); err != nil {
+			log.Error("failed to disconnect sessoions", logger.Err(err))
+		}
 		if err := signalingClient.Close(0, "close"); err != nil {
 			log.Error("failed to close signaling client", logger.Err(err))
 		}

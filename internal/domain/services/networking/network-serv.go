@@ -12,8 +12,9 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
+	"github.com/pion/ice/v2"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
@@ -23,16 +24,21 @@ const (
 	CREDS = iota
 	CANDIDATE
 
-	CONNECTED    = "Connected"
-	DISCONNECTED = "Disconnected"
-	CLOSED       = "Closed"
-	FAILED       = "Failed"
+	CONNECTED    = ice.ConnectionStateConnected
+	DISCONNECTED = ice.ConnectionStateDisconnected
+	CLOSED       = ice.ConnectionStateClosed
+	FAILED       = ice.ConnectionStateFailed
 )
 
 const (
 	CHAT = iota
 	VOICE
 	VIDEO
+)
+
+const (
+	INITIATOR     = true
+	NOT_INITIATOR = false
 )
 
 type NetworkingServ interface {
@@ -110,20 +116,28 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 		log.Error(errMsg, userIdLog)
 		return errors.New(errMsg)
 	}
+
+	curSessions, err := ns.sessionRepo.Fetch(ctx)
+	if err != nil {
+		log.Error("failed to fetch current sessions", userIdLog)
+		return errs.NewAppError(op, err)
+	}
+
+	if len(curSessions) > 0 {
+		log.Info("reconnecting...")
+		if err = ns.Disconnect(); err != nil {
+			log.Error("failed to disconnect", logger.Err(err), userIdLog)
+			return errs.NewAppError(op, err)
+		}
+	}
+
 	g.Go(func() error {
 		receiverIdLog := logger.Attr("receiverId", rid)
 
-		session, err := ns.createSession(gCtx, rid, true)
+		_, err := ns.createAndEstablish(gCtx, rid, INITIATOR)
 		if err != nil {
-			log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
-			return err
-		}
-		estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
-		defer cancel()
-		if err := ns.establishConnection(estCtx, session); err != nil {
-			log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
-			ns.disconnectSession(session)
-			return err
+			log.Error("failed to create and establish connection", logger.Err(err), receiverIdLog)
+			return errs.NewAppError(op, err)
 		}
 		return nil
 	})
@@ -140,23 +154,17 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 
 	if len(resultReceiversSessions) > 0 {
 		for _, ss := range resultReceiversSessions {
-			g.Go(func() error {
-				receiverIdLog := logger.Attr("receiverId", ss)
-
-				session, err := ns.createSession(gCtx, ss, true)
-				if err != nil {
-					log.Error("failed to create session", logger.Err(err), userIdLog, receiverIdLog)
-					return err
-				}
-				estCtx, cancel := context.WithTimeout(gCtx, ns.cfg.EstablishConnTimeout)
-				defer cancel()
-				if err := ns.establishConnection(estCtx, session); err != nil {
-					log.Error("failed to establish connection", logger.Err(err), userIdLog, receiverIdLog)
-					ns.disconnectSession(session)
-					return err
-				}
-				return nil
-			})
+			if ss != ns.userId {
+				g.Go(func() error {
+					receiverIdLog := logger.Attr("receiverId", ss)
+					_, err := ns.createAndEstablish(gCtx, ss, INITIATOR)
+					if err != nil {
+						log.Error("failed to create and establish connection", logger.Err(err), receiverIdLog)
+						return errs.NewAppError(op, err)
+					}
+					return nil
+				})
+			}
 		}
 	}
 

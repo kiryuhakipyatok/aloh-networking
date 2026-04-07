@@ -153,7 +153,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
-		if c.String() == CLOSED || c.String() == DISCONNECTED || c.String() == FAILED {
+		if c == CLOSED || c == DISCONNECTED || c == FAILED {
 			ns.disconnectSession(session)
 		}
 	}); err != nil {
@@ -207,6 +207,7 @@ func (ns *networkingServ) receiveConnects() error {
 				log.Error("invalid session type", senderIdLog)
 				return
 			}
+
 			switch sdp.Payload[0] {
 			case CREDS:
 				log.Debug("credentials processing", senderIdLog)
@@ -246,6 +247,28 @@ func (ns *networkingServ) receiveConnects() error {
 
 }
 
+func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isInitiator bool) (*models.Session, error) {
+	op := "networkingServ.createAndEstablish"
+	log := ns.logger.AddOp(op)
+	userLog := logger.Attr("userId", id)
+	session, err := ns.createSession(ctx, id, isInitiator)
+	if err != nil {
+		log.Error("failed to create session", logger.Err(err), userLog)
+		return nil, errs.NewAppError(op, err)
+	}
+
+	go func() {
+		estCtx, cancel := context.WithTimeout(context.Background(), ns.cfg.EstablishConnTimeout)
+		defer cancel()
+		if err := ns.establishConnection(estCtx, session); err != nil {
+			log.Error("failed to establish connection", logger.Err(err), userLog)
+			ns.disconnectSession(session)
+		}
+	}()
+
+	return session, nil
+}
+
 func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Session, error) {
 	op := "networkingServ.getSession"
 	log := ns.logger.AddOp(op)
@@ -261,22 +284,23 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 	session, err := ns.sessionRepo.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFoundBase) {
-			session, err = ns.createSession(ctx, id, false)
+			session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
 			if err != nil {
-				log.Error("failed to create session", logger.Err(err), userLog)
+				log.Error("failed to create session and establish connection", logger.Err(err), userLog)
 				return nil, errs.NewAppError(op, err)
 			}
-
-			go func() {
-				estCtx, cancel := context.WithTimeout(context.Background(), ns.cfg.EstablishConnTimeout)
-				defer cancel()
-				if err := ns.establishConnection(estCtx, session); err != nil {
-					log.Error("failed to establish connection", logger.Err(err), userLog)
-					ns.disconnectSession(session)
-				}
-			}()
 		} else {
 			log.Error("failed to get session", logger.Err(err), userLog)
+			return nil, errs.NewAppError(op, err)
+		}
+	}
+
+	if session.Conn != nil {
+		log.Info("sessions already exists, reconnecting", userLog)
+		ns.disconnectSession(session)
+		session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
+		if err != nil {
+			log.Error("failed to create and establish connection", logger.Err(err), userLog)
 			return nil, errs.NewAppError(op, err)
 		}
 	}
