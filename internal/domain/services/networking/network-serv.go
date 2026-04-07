@@ -134,11 +134,12 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	g.Go(func() error {
 		receiverIdLog := logger.Attr("receiverId", rid)
 
-		_, err := ns.createAndEstablish(gCtx, rid, INITIATOR)
+		session, err := ns.createAndEstablish(gCtx, rid, INITIATOR)
 		if err != nil {
 			log.Error("failed to create and establish connection", logger.Err(err), receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
+		<-session.ReadyChan
 		return nil
 	})
 	receiversSessions, err := ns.signalingClient.GetSessionsById(ctx, rid)
@@ -157,11 +158,12 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 			if ss != ns.userId {
 				g.Go(func() error {
 					receiverIdLog := logger.Attr("receiverId", ss)
-					_, err := ns.createAndEstablish(gCtx, ss, INITIATOR)
+					session, err := ns.createAndEstablish(gCtx, ss, INITIATOR)
 					if err != nil {
 						log.Error("failed to create and establish connection", logger.Err(err), receiverIdLog)
 						return errs.NewAppError(op, err)
 					}
+					<-session.ReadyChan
 					return nil
 				})
 			}

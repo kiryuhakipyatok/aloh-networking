@@ -14,4 +14,5 @@ type Session struct {
 	IsInitiator bool
 	CredsChan   chan struct{}
 	Closing     sync.Once
+	ReadyChan   chan struct{}
 }
