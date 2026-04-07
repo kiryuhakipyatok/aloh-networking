@@ -121,6 +121,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		IsInitiator: isInitiator,
 		CredsChan:   make(chan struct{}, 1),
 		Closing:     sync.Once{},
+		ReadyChan:   make(chan struct{}, 1),
 	}
 
 	localFrag, localPwd, err := agent.GetLocalUserCredentials()
@@ -262,6 +263,7 @@ func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isI
 		defer cancel()
 		if err := ns.establishConnection(estCtx, session); err != nil {
 			log.Error("failed to establish connection", logger.Err(err), userLog)
+			close(session.ReadyChan)
 			ns.disconnectSession(session)
 		}
 	}()
@@ -335,7 +337,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		EnableDatagrams:      true,
 	}
 	switch session.IsInitiator {
-	case true:
+	case INITIATOR:
 		log.Debug("dialing agent connection", userIdLog)
 		conn, err = session.Agent.Dial(ctx, remoteUfrag, remotePwd)
 		if err != nil {
@@ -362,7 +364,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 			return errs.NewAppError(op, err)
 		}
 
-	case false:
+	case NOT_INITIATOR:
 		log.Info("accepting agent connection", userIdLog)
 		conn, err = session.Agent.Accept(ctx, remoteUfrag, remotePwd)
 		if err != nil {
@@ -396,6 +398,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	session.Conn = quicConn
 	log.Info("connection established successfully", userIdLog)
 	go ns.handleConnection(session)
+	close(session.ReadyChan)
 	return nil
 
 }
