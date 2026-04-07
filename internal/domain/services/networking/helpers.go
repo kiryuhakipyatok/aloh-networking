@@ -55,16 +55,17 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 		log := ns.logger.AddOp(op)
 		userIdLog := logger.Attr("userId", session.UserID)
 		log.Info("user disconnecting...", userIdLog)
-		if session.Agent != nil {
-			if err := session.Agent.Close(); err != nil {
-				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
-			}
-		}
 		if session.Conn != nil {
 			if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
+		if session.Agent != nil {
+			if err := session.Agent.Close(); err != nil {
+				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
+			}
+		}
+		
 		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
 		}
@@ -154,7 +155,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
-		if c == CLOSED || c == DISCONNECTED || c == FAILED {
+		if c == CLOSED || c == FAILED {
 			ns.disconnectSession(session)
 		}
 	}); err != nil {
