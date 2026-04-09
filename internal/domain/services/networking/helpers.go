@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 	"time"
@@ -65,7 +64,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
-		
+
 		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
 		}
@@ -80,6 +79,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
+	userIdLog:=logger.Attr("userId", ns.userId)
 	ridLog := logger.Attr("receiverId", rid)
 	select {
 	case <-ns.closeCtx.Done():
@@ -88,14 +88,14 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		return nil, errs.ErrRequestTimeout(op)
 	default:
 	}
-	log.Info("creating new session...", ridLog)
+	log.Info("creating new session...", ridLog, userIdLog)
 	if err := ns.signalingClient.AddInSession(ctx, rid); err != nil {
-		log.Error("failed to add session", logger.Err(err), ridLog)
+		log.Error("failed to add session", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	username, password, err := ns.signalingClient.GetCreds(ctx)
 	if err != nil {
-		log.Error("failed to fetch creds", logger.Err(err), ridLog)
+		log.Error("failed to fetch creds", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 
@@ -113,7 +113,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		},
 	})
 	if err != nil {
-		log.Error("failed to create agent", logger.Err(err), ridLog)
+		log.Error("failed to create agent", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	session := &models.Session{
@@ -127,14 +127,14 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	localFrag, localPwd, err := agent.GetLocalUserCredentials()
 	if err != nil {
-		log.Error("failed to get local user credentials", logger.Err(err), ridLog)
+		log.Error("failed to get local user credentials", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
 	sdp := utils.SetFirstByte(CREDS, creds)
-	log.Debug("sdp (credentials) creating", ridLog)
+	log.Debug("sdp (credentials) creating", ridLog, userIdLog)
 	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
-		log.Error("failed to create new sdp (credentials)", logger.Err(err), ridLog)
+		log.Error("failed to create new sdp (credentials)", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 
@@ -147,9 +147,9 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			defer cancel()
 			candidate := []byte(c.Marshal())
 			sdp := utils.SetFirstByte(CANDIDATE, candidate)
-			log.Debug("sdp (candidate) creating", ridLog)
+			log.Debug("sdp (candidate) creating", ridLog, userIdLog)
 			if err := ns.signalingClient.NewSDP(sdpCtx, sdp, []string{rid}); err != nil {
-				log.Error("failed to create new sdp (candidate)", logger.Err(err), ridLog)
+				log.Error("failed to create new sdp (candidate)", logger.Err(err), ridLog, userIdLog)
 			}
 		}(c)
 
@@ -159,19 +159,19 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ns.disconnectSession(session)
 		}
 	}); err != nil {
-		log.Error("failed on connection state change", logger.Err(err), ridLog)
+		log.Error("failed on connection state change", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	go func() {
-		log.Info("candidate gathering...", ridLog)
+		log.Info("candidate gathering...", ridLog, userIdLog)
 		if err := agent.GatherCandidates(); err != nil {
-			log.Error("failed to gather candidates", logger.Err(err), ridLog)
+			log.Error("failed to gather candidates", logger.Err(err), ridLog, userIdLog)
 			ns.disconnectSession(session)
 		}
 	}()
-	log.Debug("session saving...", ridLog)
+	log.Debug("session saving...", ridLog, userIdLog)
 	if err := ns.sessionRepo.Add(ctx, rid, session); err != nil {
-		log.Error("failed to save session", logger.Err(err), ridLog)
+		log.Error("failed to save session", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
 	return session, nil
@@ -314,13 +314,15 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 func (ns *networkingServ) establishConnection(ctx context.Context, session *models.Session) error {
 	op := "networkingServ.establishConnection"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", session.UserID)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	select {
 	case <-session.CredsChan:
 	case <-ns.closeCtx.Done():
 		return errs.AppClosing(op)
 	}
-	log.Info("connection establishing...", userIdLog)
+	log.Info("connection establishing...", idsLog)
 
 	var (
 		conn     *ice.Conn
@@ -328,7 +330,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	)
 	remoteUfrag, remotePwd, err := session.Agent.GetRemoteUserCredentials()
 	if err != nil {
-		log.Error("failed to get remote user credentials", logger.Err(err), userIdLog)
+		log.Error("failed to get remote user credentials", logger.Err(err), userIdLog, receiverIdLog)
 		return errs.NewAppError(op, err)
 	}
 	quicConf := &quic.Config{
@@ -339,10 +341,10 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 	switch session.IsInitiator {
 	case INITIATOR:
-		log.Debug("dialing agent connection", userIdLog)
+		log.Debug("dialing agent connection", idsLog...)
 		conn, err = session.Agent.Dial(ctx, remoteUfrag, remotePwd)
 		if err != nil {
-			log.Error("failed to dial agent", logger.Err(err), userIdLog)
+			log.Error("failed to dial agent", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 
@@ -361,15 +363,15 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		}
 		quicConn, err = t.Dial(ctx, remoteAddr, tlsConf, quicConf)
 		if err != nil {
-			log.Error("failed to dial quic conn", logger.Err(err), userIdLog)
+			log.Error("failed to dial quic conn", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 
 	case NOT_INITIATOR:
-		log.Info("accepting agent connection", userIdLog)
+		log.Info("accepting agent connection", idsLog...)
 		conn, err = session.Agent.Accept(ctx, remoteUfrag, remotePwd)
 		if err != nil {
-			log.Error("failed to accept agent connection", logger.Err(err), userIdLog)
+			log.Error("failed to accept agent connection", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 		remoteAddr := conn.RemoteAddr()
@@ -382,22 +384,27 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		}
 		listener, err := t.Listen(ns.tlsConf, quicConf)
 		if err != nil {
-			log.Error("failed to start listen quic connections", logger.Err(err), userIdLog)
+			log.Error("failed to start listen quic connections", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 		defer func() {
 			if err := listener.Close(); err != nil {
-				log.Error("failed to close quic listener", logger.Err(err), userIdLog)
+				log.Error("failed to close quic listener", logger.Err(err), userIdLog, receiverIdLog)
 			}
 		}()
 		quicConn, err = listener.Accept(ctx)
 		if err != nil {
-			log.Error("failed to accept quic connection", logger.Err(err), userIdLog)
+			log.Error("failed to accept quic connection", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 	}
 	session.Conn = quicConn
-	log.Info("connection established successfully", userIdLog)
+	if err := setupE2EE(ctx, session); err != nil {
+		log.Error("failed to setup e2ee", logger.Err(err), receiverIdLog, userIdLog)
+		return errs.NewAppError(op, err)
+	}
+
+	log.Info("e2ee connection established successfully", idsLog...)
 	go ns.handleConnection(session)
 	close(session.ReadyChan)
 	return nil
@@ -407,13 +414,13 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 func (ns *networkingServ) handleConnection(session *models.Session) {
 	op := "networkingServ.handleConnection"
 	log := ns.logger.AddOp(op)
-	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
-	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
-	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
-	log.Info("connection handling...", connLog...)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+	log.Info("connection handling...", idsLog...)
 	defer func() {
 		ns.disconnectSession(session)
-		log.Info("connection handling stopped")
+		log.Info("connection handling stopped", idsLog...)
 	}()
 	go ns.receiveDatagrams(session)
 	ns.receiveStreams(session)
@@ -422,32 +429,36 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 func (ns *networkingServ) receiveStreams(session *models.Session) {
 	op := "networkingServ.receiveStreams"
 	log := ns.logger.AddOp(op)
-	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
-	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
-	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
-	log.Info("streams receiving...", connLog...)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverid", session.UserID)
+	log.Info("streams receiving...", receiverIdLog, userIdLog)
 	for {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
 				return
 			}
-			log.Error("failed to accept uni stream", logger.Err(err), remoteAddrLog, localAddrLog)
+			log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
 			return
 		}
 
-		data, err := io.ReadAll(stream)
+		secureStream, err := NewSecureStream(stream, session.Key)
 		if err != nil {
-			log.Error("failed to read data from stream", logger.Err(err), remoteAddrLog, localAddrLog)
+			log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
+		}
+
+		data, err := secureStream.Receive()
+		if err != nil {
+			log.Error("failed to read data from secure stream", logger.Err(err), userIdLog, receiverIdLog)
 			return
 		}
+
 		if len(data) < 1 {
-			log.Error("received empty data", remoteAddrLog, localAddrLog)
+			log.Error("received empty data", userIdLog, receiverIdLog)
 			continue
 		}
-		msgLog := logger.Attr("msg", string(data[1:]))
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		log.Info("new msg from stream received", remoteAddrLog, localAddrLog, msgLog, msgLenLog)
+		log.Info("new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
 		stream.CancelRead(0)
 		ns.processData(session.UserID, data)
 	}
@@ -457,28 +468,33 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 	op := "networkingServ.receiveDatagrams"
 	log := ns.logger.AddOp(op)
 	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
-	remoteAddrLog := logger.Attr("remoteAddr", session.Conn.RemoteAddr())
-	localAddrLog := logger.Attr("localAddr", session.Conn.LocalAddr())
-	connLog := logger.NewLogData(remoteAddrLog, localAddrLog)
-	sparseLog.Info(ns.receiveDatagramLogCount, "datagram receiving...", connLog...)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+	sparseLog.Info(ns.receiveDatagramLogCount, "datagram receiving...", idsLog...)
 	ns.receiveDatagramLogCount = 0
 	for {
 		ns.receiveDatagramLogCount++
-		data, err := session.Conn.ReceiveDatagram(ns.closeCtx)
+		datagram, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
 				ns.disconnectSession(session)
 				return
 			}
-			sparseLog.Error(ns.receiveDatagramLogCount, "failed to receive datagram", logger.Err(err), remoteAddrLog, localAddrLog)
+			sparseLog.Error(ns.receiveDatagramLogCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
 			return
 		}
+		data, err := decipherDatagram(datagram, session.Key)
+		if err != nil {
+			log.Error("failed to decipher datagram", logger.Err(err))
+		}
 		if len(data) < 1 {
-			sparseLog.Error(ns.receiveDatagramLogCount, "received empty data", remoteAddrLog, localAddrLog)
+			sparseLog.Error(ns.receiveDatagramLogCount, "received empty data", userIdLog, receiverIdLog)
 			continue
 		}
-		msgLog := logger.Attr("msgLen", len(data[1:]))
-		sparseLog.Info(ns.receiveDatagramLogCount, "new datagram received", remoteAddrLog, localAddrLog, msgLog)
+
+		msgLenLog := logger.Attr("msgLen", len(data[1:]))
+		sparseLog.Info(ns.receiveDatagramLogCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
 		ns.processData(session.UserID, data)
 	}
 }
