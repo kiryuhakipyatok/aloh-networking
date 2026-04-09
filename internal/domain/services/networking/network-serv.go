@@ -205,18 +205,17 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", ns.userId)
 	payload := data[1:]
-	msgLog := logger.Attr("msg", string(payload))
 	msgLenLog := logger.Attr("msgLen", len(payload))
-	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog, msgLog)
+	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog)
 	log.Info("message sending", sendMsgLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		log.Info("failed to fetch sessions", logger.Err(err), msgLenLog, msgLog, userIdLog)
+		log.Info("failed to fetch sessions", logger.Err(err), msgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		log.Info("zero sessions", logger.Err(err), msgLenLog, msgLog, userIdLog)
+		log.Info("zero sessions", logger.Err(err), msgLenLog, userIdLog)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -228,24 +227,31 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 				{
 					stream, err := s.Conn.OpenUniStreamSync(gctx)
 					if err != nil {
-						log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
+						log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 
 						return
 					}
 
-					if _, err := stream.Write(data); err != nil {
-						log.Error("failed to write msg in stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
+					secureStream, err := NewSecureStream(stream, s.Key)
+					if err != nil {
+						log.Error("failed to create new secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 						return
 					}
-					if err := stream.Close(); err != nil {
 
+					if err := secureStream.Send(data); err != nil {
+						log.Error("failed to send data in secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+						return
+					}
+
+					if err := secureStream.Close(); err != nil {
 						if cerr := utils.CheckErr(gctx, err); cerr == nil {
 							return
 
 						}
-						log.Error("failed to close uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog, msgLog)
+						log.Error("failed to close secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 						return
 					}
+
 				}
 			}(s)
 		}
@@ -280,7 +286,12 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 
 				recIdLog := logger.Attr("receiverId", s.UserID)
 
-				if err := s.Conn.SendDatagram(data); err != nil {
+				cipherDatagram, err := cipherDatagram(data, s.Key)
+				if err != nil {
+					log.Error("failed to cipher datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					return
+				}
+				if err := s.Conn.SendDatagram(cipherDatagram); err != nil {
 					sparseLog.Error(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}

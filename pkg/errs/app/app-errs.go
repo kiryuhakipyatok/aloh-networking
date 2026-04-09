@@ -13,6 +13,7 @@ var (
 	ErrValidationBase          = errors.New("valdiation error")
 	ErrInternalServerErrorBase = errors.New("interanl error")
 	AppClosingBase             = errors.New("app closing")
+	ErrInvalidType             = errors.New("invalid type")
 )
 
 type AppError struct {
