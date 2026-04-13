@@ -132,11 +132,11 @@ func Run() {
 	// 		fmt.Println(err)
 	// 	}
 	// })
-	// networkingHandler.OnVoice(func(id string, data []byte) {
-	// 	if err := networkingHandler.SendVoice(data); err != nil {
-	// 		fmt.Println(err)
-	// 	}
-	// })
+	networkingHandler.OnVoice(func(id string, data []byte) {
+		if err := networkingHandler.SendVoice(data); err != nil {
+			fmt.Println(err)
+		}
+	})
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
