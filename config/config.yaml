@@ -31,6 +31,7 @@ networking:
   sendInStreamTimeout: 5s
   establishConnTimeout: 30s
   datagramLogTargetCount: 1000
+  disconnectedTimeout: 20s
 
 handler:
   sendChatTimeout: 10s

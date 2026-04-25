@@ -55,6 +55,7 @@ type Networking struct {
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
 	DatagramLogTargetCount uint          `mapstructure:"datagramLogTargetCount"`
+	DisconnectedTimeout    time.Duration `mapstructure:"disconnectedTimeout"`
 }
 
 type Handler struct {

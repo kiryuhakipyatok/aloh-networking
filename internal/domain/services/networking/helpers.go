@@ -79,7 +79,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
-	userIdLog:=logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.userId)
 	ridLog := logger.Attr("receiverId", rid)
 	select {
 	case <-ns.closeCtx.Done():
@@ -111,6 +111,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ice.NetworkTypeTCP4,
 			ice.NetworkTypeTCP6,
 		},
+		DisconnectedTimeout: &ns.cfg.DisconnectedTimeout,
 	})
 	if err != nil {
 		log.Error("failed to create agent", logger.Err(err), ridLog, userIdLog)
