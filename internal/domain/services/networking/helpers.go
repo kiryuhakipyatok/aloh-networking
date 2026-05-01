@@ -156,8 +156,21 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
-		if c == CLOSED || c == FAILED {
-			ns.disconnectSession(session)
+		if c == FAILED {
+			if session.IsInitiator {
+				sdpCtx, cancel := context.WithTimeout(context.Background(), ns.cfg.NewSDPTimeout)
+				defer cancel()
+				remoteUfrag, remotePwd, err := session.Agent.GetRemoteUserCredentials()
+				if err != nil {
+					log.Error("failed to get remote user credentials", ridLog, userIdLog)
+					return
+				}
+				if err := ns.reconnect(sdpCtx, session, remoteUfrag, remotePwd); err != nil {
+					log.Error("failed to reconnect", ridLog, userIdLog)
+					return
+				}
+			}
+			//ns.disconnectSession(session)
 		}
 	}); err != nil {
 		log.Error("failed on connection state change", logger.Err(err), ridLog, userIdLog)
@@ -220,14 +233,23 @@ func (ns *networkingServ) receiveConnects() error {
 				}
 				remoteUrfrag := creds[0]
 				remotePwd := creds[1]
-				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
-					log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
-					return
+
+				if session.Conn != nil && !session.IsInitiator {
+					if err := ns.reconnect(ctx, session, remoteUrfrag, remotePwd); err != nil {
+						log.Error("failed to reconnect", logger.Err(err), senderIdLog)
+						return
+					}
+				} else {
+					if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
+						log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
+						return
+					}
+					select {
+					case session.CredsChan <- struct{}{}:
+					default:
+					}
 				}
-				select {
-				case session.CredsChan <- struct{}{}:
-				default:
-				}
+
 				log.Debug("credentials processed", senderIdLog)
 
 			case CANDIDATE:
@@ -299,15 +321,15 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 		}
 	}
 
-	if session.Conn != nil {
-		log.Info("sessions already exists, reconnecting", userLog)
-		ns.disconnectSession(session)
-		session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
-		if err != nil {
-			log.Error("failed to create and establish connection", logger.Err(err), userLog)
-			return nil, errs.NewAppError(op, err)
-		}
-	}
+	// if session.Conn != nil {
+	// 	log.Info("sessions already exists, reconnecting", userLog)
+	// 	ns.disconnectSession(session)
+	// 	session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
+	// 	if err != nil {
+	// 		log.Error("failed to create and establish connection", logger.Err(err), userLog)
+	// 		return nil, errs.NewAppError(op, err)
+	// 	}
+	// }
 
 	return session, nil
 }
@@ -410,6 +432,39 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	close(session.ReadyChan)
 	return nil
 
+}
+
+func (ns *networkingServ) reconnect(ctx context.Context, session *models.Session, remoteUfrag, remotePwd string) error {
+	op := "networking.reconnect"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+	log.Info("reconnecting...", idsLog...)
+	if err := session.Agent.Restart(remoteUfrag, remotePwd); err != nil {
+		log.Error("failed to restart agent", logger.Err(err), userIdLog, receiverIdLog)
+		return errs.NewAppError(op, err)
+	}
+	localFrag, localPwd, err := session.Agent.GetLocalUserCredentials()
+	if err != nil {
+		log.Error("failed to get local user credentials", logger.Err(err), receiverIdLog, userIdLog)
+		return errs.NewAppError(op, err)
+	}
+	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
+	sdp := utils.SetFirstByte(CREDS, creds)
+	log.Debug("sdp (credentials) creating", receiverIdLog, userIdLog)
+	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
+		log.Error("failed to create new sdp (credentials)", logger.Err(err), receiverIdLog, userIdLog)
+		return errs.NewAppError(op, err)
+	}
+	go func() {
+		log.Info("candidate gathering...", receiverIdLog, userIdLog)
+		if err := session.Agent.GatherCandidates(); err != nil {
+			log.Error("failed to gather candidates", logger.Err(err), receiverIdLog, userIdLog)
+			ns.disconnectSession(session)
+		}
+	}()
+	return nil
 }
 
 func (ns *networkingServ) handleConnection(session *models.Session) {

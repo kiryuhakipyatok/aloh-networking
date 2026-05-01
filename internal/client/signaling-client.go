@@ -82,12 +82,17 @@ func (sc *signalingClient) Close(code uint, desc string) error {
 		log = sc.logger.AddOp(op)
 	)
 	log.Info("siganling client closing...")
-	if err := sc.ctrlStream.Close(); err != nil {
-		log.Info("failed to close control stream", logger.Err(err))
-		return errs.NewAppError(op, err)
-	}
+
 	if err := sc.conn.CloseWithError(quic.ApplicationErrorCode(code), desc); err != nil {
 		log.Info("failed to close quic connection", logger.Err(err))
+		return errs.NewAppError(op, err)
+	}
+	// if err := sc.disconnect(context.Background()); err != nil {
+	// 	log.Error("failed to disconnect from signaling", logger.Err(err))
+	// 	return errs.NewAppError(op, err)
+	// }
+	if err := sc.ctrlStream.Close(); err != nil {
+		log.Info("failed to close control stream", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
 	log.Info("signaling client closed successfully")
@@ -207,3 +212,17 @@ func (sc *signalingClient) GetCreds(ctx context.Context) (string, string, error)
 
 	return sc.username, sc.password, nil
 }
+
+// func (sc *signalingClient) disconnect(ctx context.Context) error {
+// 	var (
+// 		op  = "signalingClient.Disconnect"
+// 		log = sc.logger.AddOp(op)
+// 	)
+// 	log.Info("disconnecting from signaling...")
+
+// 	if err := sc.sendCommand(ctx, DISCONN_TYPE, nil); err != nil {
+// 		log.Error("failed to send command", logger.Err(err))
+// 		return errs.NewAppError(op, err)
+// 	}
+// 	return nil
+// }
