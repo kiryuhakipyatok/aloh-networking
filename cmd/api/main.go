@@ -45,7 +45,7 @@ func (n *Netwoking) Disconnect() error {
 	return nil
 }
 
-func (n *Netwoking) SendMessage(msg string) error {
+func (n *Netwoking) SendMessage(msg []byte) error {
 	if err := n.Handler.SendMessage(msg); err != nil {
 		return err
 	}

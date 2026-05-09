@@ -89,9 +89,9 @@ func Disconnect(h C.handler) C.uint {
 }
 
 //export SendMessage
-func SendMessage(h C.handler, msg *C.cchar_t) C.uint {
+func SendMessage(h C.handler, msg unsafe.Pointer, length C.int) C.uint {
 	wr := getWrapper(h)
-	goMsg := C.GoString((*C.char)(msg))
+	goMsg :=  C.GoBytes(msg, length)
 
 	if err := wr.Handler.SendMessage(goMsg); err != nil {
 		return proccessError(err)
