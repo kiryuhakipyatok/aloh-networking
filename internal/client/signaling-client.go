@@ -43,8 +43,13 @@ type signalingClient struct {
 	password         string
 }
 
+type connConf struct {
+	quicConf *quic.Config
+	tlsConf  *tls.Config
+	addr     string
+}
+
 func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) (SignalingClient, error) {
-	op := "signalingClient.NewSignalingClient"
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -59,19 +64,25 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 		EnableDatagrams:       true,
 	}
 	addr := fmt.Sprintf("%s:%s", cfg.Address, cfg.Port)
-	conn, err := quic.DialAddr(context.Background(), addr, tlsConf, quicConf)
-	if err != nil {
-		return nil, errs.NewAppError(op, err)
+
+	connConf := connConf{
+		quicConf: quicConf,
+		tlsConf:  tlsConf,
+		addr:     addr,
 	}
+	// conn, err := quic.DialAddr(context.Background(), addr, tlsConf, quicConf)
+	// if err != nil {
+	// 	return nil, errs.NewAppError(op, err)
+	// }
 	sc := &signalingClient{
-		conn:        conn,
+		//	conn:        conn,
 		sendMsgs:    sendMsgs,
 		receiveSDPs: receiveSDPs,
 		logger:      l,
 		closeCtx:    ctx,
 	}
 
-	go sc.Run(ctx, id)
+	go sc.Run(ctx, id, connConf)
 	// regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	// defer cancel()
 	// if err := sc.registerConnect(regCtx, id); err != nil {
@@ -83,13 +94,13 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	return sc, nil
 }
 
-func (sc *signalingClient) Run(ctx context.Context, id string) {
+func (sc *signalingClient) Run(ctx context.Context, id string, connConf connConf) {
 	op := "signalingClient.Run"
 	log := sc.logger.AddOp(op)
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 1 * time.Second
 	for {
-		err := sc.serveConnection(ctx, id, b)
+		err := sc.serveConnection(ctx, id, b, connConf)
 
 		if ctx.Err() != nil {
 			sc.logger.Info("client stopped by context")

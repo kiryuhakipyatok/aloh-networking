@@ -10,16 +10,24 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
+	"github.com/quic-go/quic-go"
 
 	"github.com/google/uuid"
 )
 
-func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *backoff.ExponentialBackOff) error {
+func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *backoff.ExponentialBackOff, cc connConf) error {
 	op := "signalingClient.Run"
 	log := sc.logger.AddOp(op)
 	log.Info("serving connection")
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	conn, err := quic.DialAddr(connCtx, cc.addr, cc.tlsConf, cc.quicConf)
+	if err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	sc.conn = conn
 
 	if err := sc.registerConnect(connCtx, id); err != nil {
 		return errs.NewAppError(op, err)
