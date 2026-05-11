@@ -157,24 +157,24 @@ func (sc *signalingClient) sendMsg(ctx context.Context) error {
 		log = sc.logger.AddOp(op)
 	)
 
-	for msg := range sc.sendMsgs {
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-		}
-		msgIdLog := logger.Attr("msgId", msg.Id)
-		if err := sc.encoder.Encode(msg); err != nil {
-			if cerr := utils.CheckErr(ctx, err); cerr == nil {
-				break
+		case msg := <-sc.sendMsgs:
+			msgIdLog := logger.Attr("msgId", msg.Id)
+			if err := sc.encoder.Encode(msg); err != nil {
+				if cerr := utils.CheckErr(ctx, err); cerr == nil {
+					break
+				}
+				log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
+				return errs.NewAppError(op, err)
+			} else {
+				log.Info("msg sended successfully", msgIdLog)
 			}
-			log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
-			return errs.NewAppError(op, err)
-		} else {
-			log.Info("msg sended successfully", msgIdLog)
 		}
 	}
-	return nil
+
 }
 
 func (sc *signalingClient) receiveSDP(ctx context.Context) error {
@@ -321,7 +321,10 @@ func (sc *signalingClient) checkResp(ctx context.Context, cc checkConf) ([]byte,
 		return nil, errs.ErrRequestTimeout(cc.op)
 	}
 	select {
-	case resp := <-cc.respChan:
+	case resp, ok := <-cc.respChan:
+		if !ok {
+			return nil, errors.New("offline")
+		}
 		if *resp.Code != cc.typee {
 			return nil, codeToError(cc.op, *resp.Code)
 		}
