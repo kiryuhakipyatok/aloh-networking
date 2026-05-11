@@ -33,6 +33,10 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 
 	if err := sc.registerConnect(connCtx, id); err != nil {
 		log.Error("failed to register connect", logger.Err(err))
+		if err := sc.conn.CloseWithError(0, "register failed"); err != nil {
+			log.Error("failed to close failed conn", logger.Err(err))
+		}
+		sc.conn = nil
 		return errs.NewAppError(op, err)
 	}
 
@@ -64,10 +68,10 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	var ferr error
 	select {
 	case <-ctx.Done():
-		ferr = err
+		ferr = ctx.Err()
 	case err := <-errChan:
 		log.Error("error when running connection", logger.Err(err))
-		ferr = err
+		ferr = errs.NewAppError(op, err)
 	}
 
 	cancel()
