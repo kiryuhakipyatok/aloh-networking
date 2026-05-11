@@ -22,14 +22,23 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	if sc.conn != nil && sc.ctrlStream != nil {
+		if err := sc.Close(0, "reconnect"); err != nil {
+			log.Error("failed to close quic connection", logger.Err(err))
+			return errs.NewAppError(op, err)
+		}
+	}
+
 	conn, err := quic.DialAddr(connCtx, cc.addr, cc.tlsConf, cc.quicConf)
 	if err != nil {
+		log.Error("failed to dial quic conn", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
 
 	sc.conn = conn
 
 	if err := sc.registerConnect(connCtx, id); err != nil {
+		log.Error("failed to register connect", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
 
