@@ -144,6 +144,7 @@ func (sc *signalingClient) receiveSDP() {
 				return
 			}
 			log.Error("failed to accept uni stream from signaling", logger.Err(err))
+			continue
 		}
 		streamIdLog := logger.Attr("streamId", stream.StreamID())
 		data, err := io.ReadAll(stream)
@@ -159,6 +160,7 @@ func (sc *signalingClient) receiveSDP() {
 				return
 			}
 			log.Error("failed cast sdp message to reply message", logger.Err(err), streamIdLog)
+			continue
 		}
 		sc.receiveSDPs <- *sdpMsg
 		log.Info("sdp received successfully", logger.Attr("senderId", sdpMsg.Sender))

@@ -518,12 +518,13 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 		secureStream, err := NewSecureStream(stream, session.Key)
 		if err != nil {
 			log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
+			continue
 		}
 
 		data, err := secureStream.Receive()
 		if err != nil {
 			log.Error("failed to read data from secure stream", logger.Err(err), userIdLog, receiverIdLog)
-			return
+			continue
 		}
 
 		if len(data) < 1 {
