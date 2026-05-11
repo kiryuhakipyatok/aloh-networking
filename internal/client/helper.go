@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 
 	"github.com/cenkalti/backoff/v5"
@@ -25,6 +26,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	}
 
 	b.Reset()
+	sc.isOnline.Store(true)
 
 	errChan := make(chan error, 3)
 
@@ -51,6 +53,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 		log.Error("error when running connection", logger.Err(err))
 		cancel()
 		sc.clearPendingResponses()
+		sc.isOnline.Store(false)
 		return errs.NewAppError(op, err)
 	}
 
@@ -219,6 +222,9 @@ func (sc *signalingClient) receiveSDP(ctx context.Context) error {
 
 func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data []byte) ([]byte, error) {
 	op := "signalingClient.getPayload"
+	if !sc.isOnline.Load() {
+		return nil, errors.New("offline")
+	}
 	msgId := uuid.NewString()
 	respChan := make(chan ResponseMessage, 1)
 	sc.pendingResponses.Store(msgId, respChan)
@@ -237,6 +243,9 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 
 func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data []byte) error {
 	op := "signalingClient.sendPayload"
+	if !sc.isOnline.Load() {
+		return errors.New("offline")
+	}
 	sendMsg := SendPayloadMessage{
 		RecevierIDs: ids,
 		Payload:     data,
@@ -260,6 +269,8 @@ func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data [
 
 func (sc *signalingClient) clearPendingResponses() {
 	sc.pendingResponses.Range(func(key, value any) bool {
+		respChan := value.(chan ResponseMessage)
+		close(respChan)
 		sc.pendingResponses.Delete(key)
 		return true
 	})
@@ -267,6 +278,9 @@ func (sc *signalingClient) clearPendingResponses() {
 
 func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data []byte) error {
 	op := "signalingClient.sendCommand"
+	if !sc.isOnline.Load() {
+		return errors.New("offline")
+	}
 	msgId := uuid.NewString()
 	respChan := make(chan ResponseMessage, 1)
 	sc.pendingResponses.Store(msgId, respChan)

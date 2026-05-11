@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kiryuhakipyatok/aloh-networking/config"
@@ -24,6 +25,7 @@ type SignalingClient interface {
 	AddInSession(ctx context.Context, id string) error
 	DeleteFromSession(ctx context.Context, id string) error
 	GetCreds(ctx context.Context) (string, string, error)
+	IsOnline() bool
 }
 
 type signalingClient struct {
@@ -36,6 +38,7 @@ type signalingClient struct {
 	logger           *logger.Logger
 	closeCtx         context.Context
 	pendingResponses sync.Map
+	isOnline         atomic.Bool
 	username         string
 	password         string
 }
@@ -241,6 +244,10 @@ func (sc *signalingClient) GetCreds(ctx context.Context) (string, string, error)
 	log.Info("fetchig creds...")
 
 	return sc.username, sc.password, nil
+}
+
+func (sc *signalingClient) IsOnline() bool {
+	return sc.isOnline.Load()
 }
 
 // func (sc *signalingClient) disconnect(ctx context.Context) error {
