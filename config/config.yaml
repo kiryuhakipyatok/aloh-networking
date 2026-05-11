@@ -10,7 +10,7 @@ signaling:
   address: "164.90.163.153"
   port: "1234"
   handshakeTimeout: 10s
-  idleTimeout: 10m
+  maxIdleTimeout: 40s
   keepAlivePeriodTimeout: 10s
   closeTimeout: 10s
   startTimeout: 10s
@@ -20,7 +20,7 @@ signaling:
 
 networking:
   handshakeTimeout: 10s
-  idleTimeout: 10m
+  maxIdleTimeout: 40s
   keepAlivePeriodTimeout: 10s
   nextProtos: ["aloh-networking"]
   stunHost: "164.90.163.153"

@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/quic-go/quic-go"
 )
 
@@ -47,7 +49,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	quicConf := &quic.Config{
 
 		HandshakeIdleTimeout:  cfg.HandshakeTimeout,
-		MaxIdleTimeout:        cfg.IdleTimeout,
+		MaxIdleTimeout:        cfg.MaxIdleTimeout,
 		MaxIncomingStreams:    cfg.MaxIncomingStreams,
 		MaxIncomingUniStreams: cfg.MaxIncomingUniStreams,
 		KeepAlivePeriod:       cfg.KeepAlivePeriodTimeout,
@@ -65,15 +67,43 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 		logger:      l,
 		closeCtx:    ctx,
 	}
-	regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
-	defer cancel()
-	if err := sc.registerConnect(regCtx, id); err != nil {
-		return nil, errs.NewAppError(op, err)
-	}
-	go sc.sendMsg()
-	go sc.receiveSDP()
-	go sc.receiveResponses()
+
+	go sc.Run(ctx, id)
+	// regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
+	// defer cancel()
+	// if err := sc.registerConnect(regCtx, id); err != nil {
+	// 	return nil, errs.NewAppError(op, err)
+	// }
+	// go sc.sendMsg()
+	// go sc.receiveSDP()
+	// go sc.receiveResponses()
 	return sc, nil
+}
+
+func (sc *signalingClient) Run(ctx context.Context, id string) {
+	op := "signalingClient.Run"
+	log := sc.logger.AddOp(op)
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 1 * time.Second
+	for {
+		err := sc.serveConnection(ctx, id, b)
+
+		if ctx.Err() != nil {
+			sc.logger.Info("client stopped by context")
+			return
+		}
+
+		log.Error("connection lost, reconnecting...", logger.Err(err))
+
+		wait := b.NextBackOff()
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+
+	}
 }
 
 func (sc *signalingClient) Close(code uint, desc string) error {

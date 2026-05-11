@@ -175,7 +175,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ns.disconnectSession(session)
 			if session.IsInitiator {
 				go func() {
-					time.Sleep(1 * time.Second)
+					time.Sleep(2 * time.Second)
 					log.Info("initiating reconnect", ridLog)
 					_, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
 					if err != nil {
@@ -246,17 +246,17 @@ func (ns *networkingServ) receiveConnects() error {
 				remoteUrfrag := creds[0]
 				remotePwd := creds[1]
 
-				if session.Conn != nil {
-					log.Info("reconnecting", senderIdLog)
-					ns.disconnectSession(session)
+				// if session.Conn != nil {
+				// 	log.Info("reconnecting", senderIdLog)
+				// 	ns.disconnectSession(session)
 
-					var err error
-					session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
-					if err != nil {
-						log.Error("failed to recreate session", logger.Err(err), senderIdLog)
-						return
-					}
-				}
+				// 	var err error
+				// 	session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
+				// 	if err != nil {
+				// 		log.Error("failed to recreate session", logger.Err(err), senderIdLog)
+				// 		return
+				// 	}
+				// }
 				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
 					log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
 					return
@@ -375,7 +375,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 	quicConf := &quic.Config{
 		KeepAlivePeriod:      ns.cfg.KeepAlivePeriodTimeout,
-		MaxIdleTimeout:       ns.cfg.IdleTimeout,
+		MaxIdleTimeout:       ns.cfg.MaxIdleTimeout,
 		HandshakeIdleTimeout: ns.cfg.HandshakeTimeout,
 		EnableDatagrams:      true,
 	}

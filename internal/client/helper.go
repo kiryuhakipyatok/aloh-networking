@@ -4,14 +4,57 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/google/uuid"
 )
+
+func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *backoff.ExponentialBackOff) error {
+	op := "signalingClient.Run"
+	log := sc.logger.AddOp(op)
+	log.Info("serving connection")
+	connCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if err := sc.registerConnect(connCtx, id); err != nil {
+		return errs.NewAppError(op, err)
+	}
+
+	b.Reset()
+
+	errChan := make(chan error, 3)
+
+	go func() {
+		if err := sc.sendMsg(connCtx); err != nil {
+			errChan <- err
+		}
+	}()
+	go func() {
+		if err := sc.receiveSDP(connCtx); err != nil {
+			errChan <- err
+		}
+	}()
+	go func() {
+		if err := sc.receiveResponses(connCtx); err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errChan:
+		log.Error("error when running connection", logger.Err(err))
+		cancel()
+		sc.clearPendingResponses()
+		return errs.NewAppError(op, err)
+	}
+
+}
 
 func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {
 	var (
@@ -73,25 +116,24 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 
 }
 
-func (sc *signalingClient) receiveResponses() {
+func (sc *signalingClient) receiveResponses(ctx context.Context) error {
 	var (
 		op  = "signalingClient.receiveResponses"
 		log = sc.logger.AddOp(op)
 	)
 	for {
 		select {
-		case <-sc.closeCtx.Done():
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 		}
 		var responseMsg ResponseMessage
 		if err := sc.decoder.Decode(&responseMsg); err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
+			if cerr := utils.CheckErr(ctx, err); cerr == nil {
+				break
 			}
-			log.Error("failed to decode response message from signaling, sleep 5s", logger.Err(err))
-			time.Sleep(time.Second*5)
-			continue
+			log.Error("failed to receive response message from signaling", logger.Err(err))
+			return errs.NewAppError(op, err)
 		}
 
 		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", *responseMsg.Code))
@@ -102,9 +144,11 @@ func (sc *signalingClient) receiveResponses() {
 			reqChan <- responseMsg
 		}
 	}
+
+	return nil
 }
 
-func (sc *signalingClient) sendMsg() {
+func (sc *signalingClient) sendMsg(ctx context.Context) error {
 	var (
 		op  = "signalingClient.sendMsg"
 		log = sc.logger.AddOp(op)
@@ -112,25 +156,25 @@ func (sc *signalingClient) sendMsg() {
 
 	for msg := range sc.sendMsgs {
 		select {
-		case <-sc.closeCtx.Done():
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 		}
 		msgIdLog := logger.Attr("msgId", msg.Id)
 		if err := sc.encoder.Encode(msg); err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
+			if cerr := utils.CheckErr(ctx, err); cerr == nil {
+				break
 			}
-			log.Error("failed to send msg to signaling, sleeping 5s", logger.Err(err), msgIdLog)
-			time.Sleep(time.Second*5)
+			log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
+			return errs.NewAppError(op, err)
 		} else {
 			log.Info("msg sended successfully", msgIdLog)
 		}
 	}
-
+	return nil
 }
 
-func (sc *signalingClient) receiveSDP() {
+func (sc *signalingClient) receiveSDP(ctx context.Context) error {
 	var (
 		op  = "signalingClient.receiveSDP"
 		log = sc.logger.AddOp(op)
@@ -138,35 +182,34 @@ func (sc *signalingClient) receiveSDP() {
 
 	for {
 		select {
-		case <-sc.closeCtx.Done():
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 		}
-		stream, err := sc.conn.AcceptUniStream(sc.closeCtx)
+		stream, err := sc.conn.AcceptUniStream(ctx)
 		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
+			if cerr := utils.CheckErr(ctx, err); cerr == nil {
+				return nil
 			}
-			log.Error("failed to accept uni stream from signaling, sleeping for 5s", logger.Err(err))
-			time.Sleep(time.Second * 5)
-			continue
+			log.Error("failed to accept uni stream from signaling", logger.Err(err))
+			return errs.NewAppError(op, err)
 		}
 		streamIdLog := logger.Attr("streamId", stream.StreamID())
 		data, err := io.ReadAll(stream)
 		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
+			if cerr := utils.CheckErr(ctx, err); cerr == nil {
+				return nil
 			}
 			log.Error("failed to read data from uni stream", logger.Err(err), streamIdLog)
-			continue
+			return errs.NewAppError(op, err)
 		}
 		sdpMsg, err := ToReplyMessage(data)
 		if err != nil {
-			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
-				return
+			if cerr := utils.CheckErr(ctx, err); cerr == nil {
+				return nil
 			}
 			log.Error("failed cast sdp message to reply message", logger.Err(err), streamIdLog)
-			continue
+			return errs.NewAppError(op, err)
 		}
 		sc.receiveSDPs <- *sdpMsg
 		log.Info("sdp received successfully", logger.Attr("senderId", sdpMsg.Sender))
@@ -213,6 +256,13 @@ func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data [
 	}
 	_, err = sc.checkResp(ctx, checkConf{typee: SUCCESS, op: op, msg: msg, respChan: respChan})
 	return err
+}
+
+func (sc *signalingClient) clearPendingResponses() {
+	sc.pendingResponses.Range(func(key, value any) bool {
+		sc.pendingResponses.Delete(key)
+		return true
+	})
 }
 
 func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data []byte) error {

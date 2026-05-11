@@ -55,16 +55,16 @@ type NetworkingServ interface {
 }
 
 type networkingServ struct {
-	userId                  string
-	signalingClient         client.SignalingClient
-	sessionRepo             repository.SessionRepository
-	receiveSDPs             chan client.ReplyMessage
-	sdpsGroup               singleflight.Group
-	logger                  *logger.Logger
-	cfg                     config.Networking
-	closeCtx                context.Context
-	tlsConf                 *tls.Config
-	sendDatagramLogCount    atomic.Uint32
+	userId               string
+	signalingClient      client.SignalingClient
+	sessionRepo          repository.SessionRepository
+	receiveSDPs          chan client.ReplyMessage
+	sdpsGroup            singleflight.Group
+	logger               *logger.Logger
+	cfg                  config.Networking
+	closeCtx             context.Context
+	tlsConf              *tls.Config
+	sendDatagramLogCount atomic.Uint32
 	handlers
 }
 
