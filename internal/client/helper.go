@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
@@ -21,13 +22,6 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	log.Info("serving connection")
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	if sc.conn != nil && sc.ctrlStream != nil {
-		if err := sc.Close(0, "reconnect"); err != nil {
-			log.Error("failed to close quic connection", logger.Err(err))
-			return errs.NewAppError(op, err)
-		}
-	}
 
 	conn, err := quic.DialAddr(connCtx, cc.addr, cc.tlsConf, cc.quicConf)
 	if err != nil {
@@ -47,33 +41,51 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 
 	errChan := make(chan error, 3)
 
-	go func() {
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
 		if err := sc.sendMsg(connCtx); err != nil {
 			errChan <- err
 		}
-	}()
-	go func() {
+	})
+
+	wg.Go(func() {
 		if err := sc.receiveSDP(connCtx); err != nil {
 			errChan <- err
 		}
-	}()
-	go func() {
+	})
+
+	wg.Go(func() {
 		if err := sc.receiveResponses(connCtx); err != nil {
 			errChan <- err
 		}
-	}()
+	})
 
+	var ferr error
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		ferr = err
 	case err := <-errChan:
 		log.Error("error when running connection", logger.Err(err))
-		cancel()
-		sc.clearPendingResponses()
-		sc.isOnline.Store(false)
-		return errs.NewAppError(op, err)
+		ferr = err
 	}
 
+	cancel()
+	sc.clearPendingResponses()
+	sc.isOnline.Store(false)
+
+	if sc.conn != nil && sc.ctrlStream != nil {
+		if err := sc.Close(0, "conenction lost"); err != nil {
+			log.Error("failed to close connection when connection lost", logger.Err(err))
+		}
+		sc.conn = nil
+		sc.ctrlStream = nil
+		sc.encoder = nil
+		sc.decoder = nil
+	}
+
+	wg.Wait()
+	return ferr
 }
 
 func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {

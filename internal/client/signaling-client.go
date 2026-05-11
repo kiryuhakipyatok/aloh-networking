@@ -126,19 +126,24 @@ func (sc *signalingClient) Close(code uint, desc string) error {
 		log = sc.logger.AddOp(op)
 	)
 	log.Info("siganling client closing...")
-
-	if err := sc.conn.CloseWithError(quic.ApplicationErrorCode(code), desc); err != nil {
-		log.Info("failed to close quic connection", logger.Err(err))
-		return errs.NewAppError(op, err)
+	if sc.conn != nil {
+		if err := sc.conn.CloseWithError(quic.ApplicationErrorCode(code), desc); err != nil {
+			log.Info("failed to close quic connection", logger.Err(err))
+			return errs.NewAppError(op, err)
+		}
 	}
+
 	// if err := sc.disconnect(context.Background()); err != nil {
 	// 	log.Error("failed to disconnect from signaling", logger.Err(err))
 	// 	return errs.NewAppError(op, err)
 	// }
-	if err := sc.ctrlStream.Close(); err != nil {
-		log.Info("failed to close control stream", logger.Err(err))
-		return errs.NewAppError(op, err)
+	if sc.ctrlStream != nil {
+		if err := sc.ctrlStream.Close(); err != nil {
+			log.Info("failed to close control stream", logger.Err(err))
+			return errs.NewAppError(op, err)
+		}
 	}
+
 	log.Info("signaling client closed successfully")
 	return nil
 }
