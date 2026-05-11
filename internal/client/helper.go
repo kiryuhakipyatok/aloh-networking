@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"time"
+
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/google/uuid"
@@ -87,7 +89,8 @@ func (sc *signalingClient) receiveResponses() {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
-			log.Error("failed to receive response message from signaling", logger.Err(err))
+			log.Error("failed to decode response message from signaling, sleep 5s", logger.Err(err))
+			time.Sleep(time.Second*5)
 			continue
 		}
 
@@ -143,7 +146,8 @@ func (sc *signalingClient) receiveSDP() {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
-			log.Error("failed to accept uni stream from signaling", logger.Err(err))
+			log.Error("failed to accept uni stream from signaling, sleeping for 5s", logger.Err(err))
+			time.Sleep(time.Second * 5)
 			continue
 		}
 		streamIdLog := logger.Attr("streamId", stream.StreamID())
@@ -153,6 +157,7 @@ func (sc *signalingClient) receiveSDP() {
 				return
 			}
 			log.Error("failed to read data from uni stream", logger.Err(err), streamIdLog)
+			continue
 		}
 		sdpMsg, err := ToReplyMessage(data)
 		if err != nil {
