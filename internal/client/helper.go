@@ -121,7 +121,8 @@ func (sc *signalingClient) sendMsg() {
 			if cerr := utils.CheckErr(sc.closeCtx, err); cerr == nil {
 				return
 			}
-			log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
+			log.Error("failed to send msg to signaling, sleeping 5s", logger.Err(err), msgIdLog)
+			time.Sleep(time.Second*5)
 		} else {
 			log.Info("msg sended successfully", msgIdLog)
 		}
