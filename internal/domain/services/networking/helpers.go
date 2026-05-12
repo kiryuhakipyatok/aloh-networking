@@ -277,17 +277,17 @@ func (ns *networkingServ) receiveConnects() error {
 				remoteUrfrag := creds[0]
 				remotePwd := creds[1]
 
-				// if session.Conn != nil {
-				// 	log.Info("reconnecting", senderIdLog)
-				// 	ns.resetSession(session)
+				if session.Conn != nil {
+					log.Info("reconnecting", senderIdLog)
+					ns.resetSession(session)
 
-				// 	var err error
-				// 	session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
-				// 	if err != nil {
-				// 		log.Error("failed to recreate session", logger.Err(err), senderIdLog)
-				// 		return
-				// 	}
-				// }
+					var err error
+					session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
+					if err != nil {
+						log.Error("failed to recreate session", logger.Err(err), senderIdLog)
+						return
+					}
+				}
 				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
 					log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
 					return
