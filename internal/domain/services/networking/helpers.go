@@ -336,7 +336,8 @@ func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isI
 		if err := ns.establishConnection(estCtx, session); err != nil {
 			log.Error("failed to establish connection", logger.Err(err), userLog)
 			close(session.ReadyChan)
-			ns.disconnectSession(session)
+			//ns.disconnectSession(session)
+			ns.resetSession(session)
 		}
 	}()
 
@@ -523,7 +524,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("connection handling...", idsLog...)
 	defer func() {
-		ns.disconnectSession(session)
+		//ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
 	go ns.receiveDatagrams(session)
@@ -584,7 +585,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 		datagram, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				ns.disconnectSession(session)
+				// ns.disconnectSession(session)
 				return
 			}
 			sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)

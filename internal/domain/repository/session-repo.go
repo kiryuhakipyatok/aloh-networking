@@ -3,9 +3,10 @@ package repository
 import (
 	"context"
 	"errors"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"sync"
+
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 type SessionRepository interface {
