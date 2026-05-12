@@ -66,14 +66,18 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 			}
 		}
 
+		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
+			log.Error("failed to delete session", logger.Err(err), userIdLog)
+			return
+		}
+
 		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
+			return
 		}
-		if err := ns.sessionRepo.Delete(context.Background(), session.UserID); err != nil {
-			log.Error("failed to delete session", logger.Err(err), userIdLog)
-		} else {
-			log.Info("user disconnected", userIdLog)
-		}
+
+		log.Info("user disconnected", userIdLog)
+
 	})
 }
 
@@ -181,17 +185,24 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 					for {
 						time.Sleep(b.NextBackOff())
 						if ns.closeCtx.Err() != nil {
-							log.Info("app is closing, stop ice reconnecting")
+							log.Info("app is closing, stop ice reconnecting", ridLog)
 							return
 						}
 
 						log.Info("reconnecting...", ridLog)
-						_, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
+						newSession, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
 						if err != nil {
 							log.Error("failed to reconnect", logger.Err(err), ridLog)
 							continue
 						}
-						log.Info("reconnected successfully")
+
+						<-newSession.ReadyChan
+
+						if newSession.Conn == nil {
+							log.Error("establishConnection failed, retrying...", ridLog)
+							continue
+						}
+						log.Info("reconnected successfully", ridLog)
 						return
 					}
 

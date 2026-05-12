@@ -16,6 +16,7 @@ const (
 	CHAT_ERROR
 	VOICE_ERROR
 	VIDEO_ERROR
+	OFFLINE
 	INTERNAL_ERROR
 )
 
@@ -66,7 +67,7 @@ func errorValidationMessage() ErrorCode {
 }
 
 func errorOfflineMessage() ErrorCode {
-	return NewErrorMessage(VALIDATION_ERROR)
+	return NewErrorMessage(OFFLINE)
 }
 
 func ProcessError(err error) error {
