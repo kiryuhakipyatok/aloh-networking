@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"sync"
 
@@ -256,7 +255,7 @@ func (sc *signalingClient) receiveSDP(ctx context.Context) error {
 func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data []byte) ([]byte, error) {
 	op := "signalingClient.getPayload"
 	if !sc.isOnline.Load() {
-		return nil, errors.New("offline")
+		return nil, errs.ErrOfflineBase
 	}
 	msgId := uuid.NewString()
 	respChan := make(chan ResponseMessage, 1)
@@ -277,7 +276,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data []byte) error {
 	op := "signalingClient.sendPayload"
 	if !sc.isOnline.Load() {
-		return errors.New("offline")
+		return errs.ErrOfflineBase
 	}
 	sendMsg := SendPayloadMessage{
 		RecevierIDs: ids,
@@ -312,7 +311,7 @@ func (sc *signalingClient) clearPendingResponses() {
 func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data []byte) error {
 	op := "signalingClient.sendCommand"
 	if !sc.isOnline.Load() {
-		return errors.New("offline")
+		return errs.ErrOfflineBase
 	}
 	msgId := uuid.NewString()
 	respChan := make(chan ResponseMessage, 1)
@@ -356,7 +355,7 @@ func (sc *signalingClient) checkResp(ctx context.Context, cc checkConf) ([]byte,
 	select {
 	case resp, ok := <-cc.respChan:
 		if !ok {
-			return nil, errors.New("offline")
+			return nil, errs.ErrOfflineBase
 		}
 		if *resp.Code != cc.typee {
 			return nil, codeToError(cc.op, *resp.Code)

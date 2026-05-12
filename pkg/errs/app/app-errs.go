@@ -14,6 +14,7 @@ var (
 	ErrInternalServerErrorBase = errors.New("interanl error")
 	AppClosingBase             = errors.New("app closing")
 	ErrInvalidType             = errors.New("invalid type")
+	ErrOfflineBase             = errors.New("offline")
 )
 
 type AppError struct {
@@ -62,4 +63,8 @@ func ErrInternal(op string) AppError {
 
 func AppClosing(op string) AppError {
 	return AppError{Op: op, Err: AppClosingBase}
+}
+
+func ErrOffline(op string) AppError {
+	return AppError{Op: op, Err: ErrOfflineBase}
 }

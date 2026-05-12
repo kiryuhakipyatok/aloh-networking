@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
@@ -175,12 +176,25 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ns.disconnectSession(session)
 			if session.IsInitiator {
 				go func() {
-					time.Sleep(2 * time.Second)
-					log.Info("initiating reconnect", ridLog)
-					_, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
-					if err != nil {
-						log.Error("failed to reconnect", logger.Err(err), ridLog)
+					b := backoff.NewExponentialBackOff()
+					b.InitialInterval = 1 * time.Second
+					for {
+						time.Sleep(b.NextBackOff())
+						if ns.closeCtx.Err() != nil {
+							log.Info("app is closing, stop ice reconnecting")
+							return
+						}
+
+						log.Info("reconnecting...", ridLog)
+						_, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
+						if err != nil {
+							log.Error("failed to reconnect", logger.Err(err), ridLog)
+							continue
+						}
+						log.Info("reconnected successfully")
+						return
 					}
+
 				}()
 			}
 		}
