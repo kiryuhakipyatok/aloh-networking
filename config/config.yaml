@@ -30,7 +30,8 @@ networking:
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
   establishConnTimeout: 30s
-  datagramLogTargetCount: 1000
+  datagramLogTargetCount: 500
+  fetchLogTargetCount: 100
   disconnectedTimeout: 20s
 
 handler:

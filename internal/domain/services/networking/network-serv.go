@@ -65,6 +65,7 @@ type networkingServ struct {
 	closeCtx             context.Context
 	tlsConf              *tls.Config
 	sendDatagramLogCount atomic.Uint32
+	fetchLogCount        atomic.Uint32
 	handlers
 }
 
@@ -293,7 +294,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 					return
 				}
 				if err := s.Conn.SendDatagram(cipherDatagram); err != nil {
-					sparseLog.Error(ns.sendDatagramLogCount.Load(), "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					log.Error("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
 				sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sent", sendDatagramLog...)
@@ -306,9 +307,11 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 }
 
 func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
+	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchOnline"
 	log := ns.logger.AddOp(op)
-	log.Info("online fetching...")
+	sparceLog := log.Sparse(ns.cfg.FetchLogTargetCount)
+	sparceLog.Info(ns.fetchLogCount.Load(), "online fetching...")
 	onlineIdsByte, err := ns.signalingClient.GetOnline(ctx)
 	if err != nil {
 		log.Error("failed to fetch online", logger.Err(err))
@@ -319,15 +322,17 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 		log.Error("failed to unmarshal online", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("online fetched successfully")
+	sparceLog.Info(ns.fetchLogCount.Load(), "online fetched successfully")
 	return onlineIds, nil
 
 }
 
 func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]string, error) {
+	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchSessions"
 	log := ns.logger.AddOp(op)
-	log.Info("sessions by id fetching...")
+	sparceLog := log.Sparse(ns.cfg.FetchLogTargetCount)
+	sparceLog.Info(ns.fetchLogCount.Load(), "sessions by id fetching...")
 	sessionsByte, err := ns.signalingClient.GetSessionsById(ctx, id)
 	if err != nil {
 		log.Error("failed to fetch sessions by id", logger.Err(err))
@@ -338,6 +343,6 @@ func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]s
 		log.Error("failed to unmarshal sessions by id", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("sessions by id fetched successfully")
+	sparceLog.Info(ns.fetchLogCount.Load(), "sessions by id fetched successfully")
 	return sessions, nil
 }

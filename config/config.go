@@ -31,7 +31,7 @@ type App struct {
 type Signaling struct {
 	Address                string        `mapstructure:"address"`
 	Port                   string        `mapstructure:"port"`
-	MaxIdleTimeout            time.Duration `mapstructure:"maxIdleTimeout"`
+	MaxIdleTimeout         time.Duration `mapstructure:"maxIdleTimeout"`
 	HandshakeTimeout       time.Duration `mapstructure:"handshakeTimeout"`
 	KeepAlivePeriodTimeout time.Duration `mapstructure:"keepAlivePeriodTimeout"`
 	CloseTimeout           time.Duration `mapstructure:"closeTimeout"`
@@ -55,6 +55,7 @@ type Networking struct {
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
 	DatagramLogTargetCount uint32        `mapstructure:"datagramLogTargetCount"`
+	FetchLogTargetCount    uint32        `mapstructure:"fetchLogTargetCount"`
 	DisconnectedTimeout    time.Duration `mapstructure:"disconnectedTimeout"`
 }
 
