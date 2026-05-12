@@ -81,6 +81,26 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 	})
 }
 
+func (ns *networkingServ) resetSession(session *models.Session) {
+	op := "networkingServ.resetSession"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", session.UserID)
+	log.Info("session reseting...", userIdLog)
+	if session.Conn != nil {
+		if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
+			log.Error("failed to close quic conn", logger.Err(err), userIdLog)
+		}
+	}
+	if session.Agent != nil {
+		if err := session.Agent.Close(); err != nil {
+			log.Error("failed to close ice agent", logger.Err(err), userIdLog)
+		}
+	}
+
+	log.Info("session reseted", userIdLog)
+
+}
+
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
@@ -163,21 +183,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
 		if c == FAILED || c == DISCONNECTED {
 			log.Info("ice connection failed, closing session and reconnect", ridLog)
-			// if session.IsInitiator {
-			// 	sdpCtx, cancel := context.WithTimeout(context.Background(), ns.cfg.NewSDPTimeout)
-			// 	defer cancel()
-			// 	remoteUfrag, remotePwd, err := session.Agent.GetRemoteUserCredentials()
-			// 	if err != nil {
-			// 		log.Error("failed to get remote user credentials", ridLog, userIdLog)
-			// 		return
-			// 	}
-			// 	log.Info("reconnecting...", ridLog, userIdLog)
-			// 	if err := ns.reconnect(sdpCtx, session, remoteUfrag, remotePwd); err != nil {
-			// 		log.Error("failed to reconnect", logger.Err(err), ridLog, userIdLog)
-			// 		return
-			// 	}
-			// }
-			ns.disconnectSession(session)
+			ns.resetSession(session)
 			if session.IsInitiator {
 				go func() {
 					b := backoff.NewExponentialBackOff()
@@ -199,7 +205,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 						<-newSession.ReadyChan
 
 						if newSession.Conn == nil {
-							log.Error("establishConnection failed, retrying...", ridLog)
+							log.Error("establish connection failed, retrying...", ridLog)
 							continue
 						}
 						log.Info("reconnected successfully", ridLog)
@@ -273,7 +279,7 @@ func (ns *networkingServ) receiveConnects() error {
 
 				// if session.Conn != nil {
 				// 	log.Info("reconnecting", senderIdLog)
-				// 	ns.disconnectSession(session)
+				// 	ns.resetSession(session)
 
 				// 	var err error
 				// 	session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
