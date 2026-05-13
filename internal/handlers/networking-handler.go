@@ -167,6 +167,14 @@ func (nh *NetworkingHandler) OnVoice(f func(id string, data []byte)) {
 	nh.NetworkingServ.SaveVoiceHandler(f)
 }
 
+func (nh *NetworkingHandler) OnPeerConnected(f func(id string)) {
+	nh.NetworkingServ.SavePeerConnectedHandler(f)
+}
+
+func (nh *NetworkingHandler) OnPeerDisconnected(f func(id string)) {
+	nh.NetworkingServ.SavePeerDisconnectedHandler(f)
+}
+
 func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
 	defer cancel()

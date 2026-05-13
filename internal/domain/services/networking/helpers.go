@@ -29,17 +29,17 @@ func (ns *networkingServ) processData(id string, data []byte) {
 	copy(payload, data[1:])
 	switch msgType {
 	case CHAT:
-		chatHdlr, ok := ns.onChatHandler.Load().(handler)
+		chatHdlr, ok := ns.onChatHandler.Load().(dataHandler)
 		if ok {
 			chatHdlr(id, payload)
 		}
 	case VOICE:
-		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
+		voiceHdlr, ok := ns.onVoiceHandler.Load().(dataHandler)
 		if ok {
 			voiceHdlr(id, payload)
 		}
 	case VIDEO:
-		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
+		videoHdlr, ok := ns.onVideoHandler.Load().(dataHandler)
 		if ok {
 			videoHdlr(id, payload)
 		}
@@ -74,6 +74,11 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
 			return
+		}
+
+		disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
+		if ok {
+			disconnHdlr(session.UserID)
 		}
 
 		log.Info("user disconnected", userIdLog)
@@ -475,6 +480,11 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	if err := setupE2EE(ctx, session); err != nil {
 		log.Error("failed to setup e2ee", logger.Err(err), receiverIdLog, userIdLog)
 		return errs.NewAppError(op, err)
+	}
+
+	connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
+	if ok {
+		connHdlr(session.UserID)
 	}
 
 	log.Info("e2ee connection established successfully", idsLog...)

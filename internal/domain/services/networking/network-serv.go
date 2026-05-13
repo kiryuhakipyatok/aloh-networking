@@ -47,9 +47,11 @@ type NetworkingServ interface {
 	Disconnect() error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
-	SaveChatHandler(h handler)
-	SaveVoiceHandler(h handler)
-	SaveVideoHandler(h handler)
+	SaveChatHandler(h dataHandler)
+	SaveVoiceHandler(h dataHandler)
+	SaveVideoHandler(h dataHandler)
+	SavePeerConnectedHandler(h connectionHandler)
+	SavePeerDisconnectedHandler(h connectionHandler)
 	FetchOnline(ctx context.Context) ([]string, error)
 	FetchSessionsById(ctx context.Context, id string) ([]string, error)
 }
