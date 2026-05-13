@@ -542,6 +542,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session)
 				return
 			}
 			log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
@@ -586,7 +587,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 		datagram, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				// ns.disconnectSession(session)
+				ns.disconnectSession(session)
 				return
 			}
 			sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
