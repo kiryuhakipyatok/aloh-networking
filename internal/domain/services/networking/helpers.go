@@ -193,7 +193,13 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 				go func() {
 					b := backoff.NewExponentialBackOff()
 					b.InitialInterval = 1 * time.Second
+					b.MaxInterval = 30 * time.Second
 					for {
+						wait := b.NextBackOff()
+						if wait >= b.MaxInterval {
+							log.Info("reconnecting more then 30s", ridLog)
+							return
+						}
 						time.Sleep(b.NextBackOff())
 						if ns.closeCtx.Err() != nil {
 							log.Info("app is closing, stop ice reconnecting", ridLog)
