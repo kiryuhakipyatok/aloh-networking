@@ -41,6 +41,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 
 	b.Reset()
 	sc.isOnline.Store(true)
+	sc.onlineChan<-struct{}{}
 
 	errChan := make(chan error, 3)
 

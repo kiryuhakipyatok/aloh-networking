@@ -39,6 +39,7 @@ type signalingClient struct {
 	closeCtx         context.Context
 	pendingResponses sync.Map
 	isOnline         atomic.Bool
+	onlineChan       chan struct{}
 	username         string
 	password         string
 }
@@ -80,9 +81,13 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 		receiveSDPs: receiveSDPs,
 		logger:      l,
 		closeCtx:    ctx,
+		onlineChan:  make(chan struct{}, 1),
 	}
 
 	go sc.Run(ctx, id, connConf)
+
+	<-sc.onlineChan
+	close(sc.onlineChan)
 	// regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	// defer cancel()
 	// if err := sc.registerConnect(regCtx, id); err != nil {
@@ -186,7 +191,7 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 		op  = "signalingClient.GetSessionsById"
 		log = sc.logger.AddOp(op)
 	)
-//log.Info("fetching sessions by id from signaling...")
+	//log.Info("fetching sessions by id from signaling...")
 	userId := UserId{
 		ID: id,
 	}
@@ -249,7 +254,7 @@ func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) err
 
 func (sc *signalingClient) GetCreds(ctx context.Context) (string, string, error) {
 	var (
-		op  = "signalingClient.GetCreds"
+		op = "signalingClient.GetCreds"
 		//log = sc.logger.AddOp(op)
 	)
 	select {
