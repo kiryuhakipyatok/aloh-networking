@@ -153,12 +153,12 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 		op  = "signalingClient.NewSDP"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("creating new sdp...")
+	//log.Info("creating new sdp...")
 
 	if err := sc.sendPayload(ctx, ids, sdp); err != nil {
 		log.Error("failed to send payload", logger.Err(err))
 	}
-	log.Info("sdp created successfully")
+	//log.Info("sdp created successfully")
 	return nil
 
 }
@@ -168,7 +168,7 @@ func (sc *signalingClient) GetOnline(ctx context.Context) ([]byte, error) {
 		op  = "signalingClient.GetOnline"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("fetching online from signaling...")
+	//log.Info("fetching online from signaling...")
 
 	online, err := sc.getPayload(ctx, GET_ONLINE_TYPE, nil)
 	if err != nil {
@@ -176,7 +176,7 @@ func (sc *signalingClient) GetOnline(ctx context.Context) ([]byte, error) {
 		return nil, errs.NewAppError(op, err)
 	}
 
-	log.Info("online fetched from signaling")
+	//log.Info("online fetched from signaling")
 	return online, nil
 }
 
@@ -186,7 +186,7 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 		op  = "signalingClient.GetSessionsById"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("fetching sessions by id from signaling...")
+//log.Info("fetching sessions by id from signaling...")
 	userId := UserId{
 		ID: id,
 	}
@@ -200,7 +200,7 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 		return nil, errs.NewAppError(op, err)
 	}
 
-	log.Info("sessions by id fetched from signaling")
+	//log.Info("sessions by id fetched from signaling")
 	return sessions, nil
 }
 
@@ -210,7 +210,7 @@ func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
 		op  = "signalingClient.AddInSession"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("adding session to signaling...")
+	//log.Info("adding session to signaling...")
 	userId := UserId{
 		ID: id,
 	}
@@ -231,7 +231,7 @@ func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) err
 		op  = "signalingClient.DeleteFromSession"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("deleting user from session to signaling...")
+	//log.Info("deleting user from session to signaling...")
 	userId := UserId{
 		ID: id,
 	}
@@ -250,14 +250,14 @@ func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) err
 func (sc *signalingClient) GetCreds(ctx context.Context) (string, string, error) {
 	var (
 		op  = "signalingClient.GetCreds"
-		log = sc.logger.AddOp(op)
+		//log = sc.logger.AddOp(op)
 	)
 	select {
 	case <-ctx.Done():
 		return "", "", errs.ErrRequestTimeout(op)
 	default:
 	}
-	log.Info("fetchig creds...")
+	//log.Info("fetchig creds...")
 
 	return sc.username, sc.password, nil
 }

@@ -171,8 +171,8 @@ func (sc *signalingClient) receiveResponses(ctx context.Context) error {
 			return errs.NewAppError(op, err)
 		}
 
-		respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", *responseMsg.Code))
-		log.Info("new response message from signaling", respLog...)
+		//respLog := logger.NewLogData(logger.Attr("msgId", responseMsg.MessageId), logger.Attr("respCode", *responseMsg.Code))
+		//log.Info("new response message from signaling", respLog...)
 		resChanInt, ok := sc.pendingResponses.Load(responseMsg.MessageId)
 		if ok {
 			reqChan, _ := resChanInt.(chan ResponseMessage)
@@ -201,9 +201,10 @@ func (sc *signalingClient) sendMsg(ctx context.Context) error {
 				}
 				log.Error("failed to send msg to signaling", logger.Err(err), msgIdLog)
 				return errs.NewAppError(op, err)
-			} else {
-				log.Info("msg sended successfully", msgIdLog)
 			}
+			// } else {
+			// 	log.Info("msg sended successfully", msgIdLog)
+			// }
 		}
 	}
 
