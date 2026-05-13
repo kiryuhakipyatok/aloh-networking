@@ -102,6 +102,24 @@ func (n *Netwoking) RegisterOnVoice(cb func(id string, data []byte)) {
 	})
 }
 
+func (n *Netwoking) RegisterOnPeerConnected(cb func(id string)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnPeerConnected(func(id string) {
+		cb(id)
+	})
+}
+
+func (n *Netwoking) RegisterOnPeerDisconnected(cb func(id string)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnPeerDisconnected(func(id string) {
+		cb(id)
+	})
+}
+
 func (n *Netwoking) FetchOnline() ([]string, error) {
 	online, err := n.Handler.FetchOnline()
 	if err != nil {
