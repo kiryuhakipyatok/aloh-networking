@@ -39,7 +39,6 @@ type signalingClient struct {
 	closeCtx         context.Context
 	pendingResponses sync.Map
 	isOnline         atomic.Bool
-	onlineChan       chan struct{}
 	username         string
 	password         string
 }
@@ -81,13 +80,11 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 		receiveSDPs: receiveSDPs,
 		logger:      l,
 		closeCtx:    ctx,
-		onlineChan:  make(chan struct{}, 1),
 	}
+	sc.isOnline.Store(true)
 
 	go sc.Run(ctx, id, connConf)
 
-	<-sc.onlineChan
-	close(sc.onlineChan)
 	// regCtx, cancel := context.WithTimeout(ctx, cfg.RegTimeout)
 	// defer cancel()
 	// if err := sc.registerConnect(regCtx, id); err != nil {
