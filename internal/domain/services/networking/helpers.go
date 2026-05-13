@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
@@ -28,17 +29,17 @@ func (ns *networkingServ) processData(id string, data []byte) {
 	copy(payload, data[1:])
 	switch msgType {
 	case CHAT:
-		chatHdlr, ok := ns.onChatHandler.Load().(handler)
+		chatHdlr, ok := ns.onChatHandler.Load().(dataHandler)
 		if ok {
 			chatHdlr(id, payload)
 		}
 	case VOICE:
-		voiceHdlr, ok := ns.onVoiceHandler.Load().(handler)
+		voiceHdlr, ok := ns.onVoiceHandler.Load().(dataHandler)
 		if ok {
 			voiceHdlr(id, payload)
 		}
 	case VIDEO:
-		videoHdlr, ok := ns.onVideoHandler.Load().(handler)
+		videoHdlr, ok := ns.onVideoHandler.Load().(dataHandler)
 		if ok {
 			videoHdlr(id, payload)
 		}
@@ -65,21 +66,48 @@ func (ns *networkingServ) disconnectSession(session *models.Session) {
 			}
 		}
 
+		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
+			log.Error("failed to delete session", logger.Err(err), userIdLog)
+		}
+
 		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 			log.Error("failed to delete from session", logger.Err(err), userIdLog)
 		}
-		if err := ns.sessionRepo.Delete(context.Background(), session.UserID); err != nil {
-			log.Error("failed to delete session", logger.Err(err), userIdLog)
-		} else {
-			log.Info("user disconnected", userIdLog)
+
+		disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
+		if ok {
+			disconnHdlr(session.UserID)
 		}
+
+		log.Info("user disconnected", userIdLog)
+
 	})
+}
+
+func (ns *networkingServ) resetSession(session *models.Session) {
+	op := "networkingServ.resetSession"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", session.UserID)
+	log.Info("session reseting...", userIdLog)
+	if session.Conn != nil {
+		if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
+			log.Error("failed to close quic conn", logger.Err(err), userIdLog)
+		}
+	}
+	if session.Agent != nil {
+		if err := session.Agent.Close(); err != nil {
+			log.Error("failed to close ice agent", logger.Err(err), userIdLog)
+		}
+	}
+
+	log.Info("session reseted", userIdLog)
+
 }
 
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
-	userIdLog:=logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.userId)
 	ridLog := logger.Attr("receiverId", rid)
 	select {
 	case <-ns.closeCtx.Done():
@@ -110,6 +138,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			ice.NetworkTypeTCP4,
 			ice.NetworkTypeTCP6,
 		},
+		DisconnectedTimeout: &ns.cfg.DisconnectedTimeout,
 	})
 	if err != nil {
 		log.Error("failed to create agent", logger.Err(err), ridLog, userIdLog)
@@ -154,8 +183,39 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
-		if c == CLOSED || c == FAILED {
-			ns.disconnectSession(session)
+		if c == FAILED || c == DISCONNECTED {
+			log.Info("ice connection failed, reconnect", ridLog)
+			ns.resetSession(session)
+			if session.IsInitiator {
+				go func() {
+					b := backoff.NewExponentialBackOff()
+					b.InitialInterval = 1 * time.Second
+					for {
+						time.Sleep(b.NextBackOff())
+						if ns.closeCtx.Err() != nil {
+							log.Info("app is closing, stop ice reconnecting", ridLog)
+							return
+						}
+
+						log.Info("reconnecting...", ridLog)
+						newSession, err := ns.createAndEstablish(context.Background(), rid, INITIATOR)
+						if err != nil {
+							log.Error("failed to reconnect", logger.Err(err), ridLog)
+							continue
+						}
+
+						<-newSession.ReadyChan
+
+						if newSession.Conn == nil {
+							log.Error("establish connection failed, retrying...", ridLog)
+							continue
+						}
+						log.Info("reconnected successfully", ridLog)
+						return
+					}
+
+				}()
+			}
 		}
 	}); err != nil {
 		log.Error("failed on connection state change", logger.Err(err), ridLog, userIdLog)
@@ -165,7 +225,8 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Info("candidate gathering...", ridLog, userIdLog)
 		if err := agent.GatherCandidates(); err != nil {
 			log.Error("failed to gather candidates", logger.Err(err), ridLog, userIdLog)
-			ns.disconnectSession(session)
+			//ns.disconnectSession(session)
+			return
 		}
 	}()
 	log.Debug("session saving...", ridLog, userIdLog)
@@ -218,6 +279,18 @@ func (ns *networkingServ) receiveConnects() error {
 				}
 				remoteUrfrag := creds[0]
 				remotePwd := creds[1]
+
+				if session.Conn != nil {
+					log.Info("reconnecting", senderIdLog)
+					ns.resetSession(session)
+
+					var err error
+					session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
+					if err != nil {
+						log.Error("failed to recreate session", logger.Err(err), senderIdLog)
+						return
+					}
+				}
 				if err := session.Agent.SetRemoteCredentials(remoteUrfrag, remotePwd); err != nil {
 					log.Error("failed to set remote credential", logger.Err(err), senderIdLog)
 					return
@@ -226,6 +299,8 @@ func (ns *networkingServ) receiveConnects() error {
 				case session.CredsChan <- struct{}{}:
 				default:
 				}
+				// }
+
 				log.Debug("credentials processed", senderIdLog)
 
 			case CANDIDATE:
@@ -264,7 +339,8 @@ func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isI
 		if err := ns.establishConnection(estCtx, session); err != nil {
 			log.Error("failed to establish connection", logger.Err(err), userLog)
 			close(session.ReadyChan)
-			ns.disconnectSession(session)
+			//ns.disconnectSession(session)
+			ns.resetSession(session)
 		}
 	}()
 
@@ -297,15 +373,15 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 		}
 	}
 
-	if session.Conn != nil {
-		log.Info("sessions already exists, reconnecting", userLog)
-		ns.disconnectSession(session)
-		session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
-		if err != nil {
-			log.Error("failed to create and establish connection", logger.Err(err), userLog)
-			return nil, errs.NewAppError(op, err)
-		}
-	}
+	// if session.Conn != nil {
+	// 	log.Info("sessions already exists, reconnecting", userLog)
+	// 	ns.disconnectSession(session)
+	// 	session, err = ns.createAndEstablish(ctx, id, NOT_INITIATOR)
+	// 	if err != nil {
+	// 		log.Error("failed to create and establish connection", logger.Err(err), userLog)
+	// 		return nil, errs.NewAppError(op, err)
+	// 	}
+	// }
 
 	return session, nil
 }
@@ -334,7 +410,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 	quicConf := &quic.Config{
 		KeepAlivePeriod:      ns.cfg.KeepAlivePeriodTimeout,
-		MaxIdleTimeout:       ns.cfg.IdleTimeout,
+		MaxIdleTimeout:       ns.cfg.MaxIdleTimeout,
 		HandshakeIdleTimeout: ns.cfg.HandshakeTimeout,
 		EnableDatagrams:      true,
 	}
@@ -403,12 +479,50 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		return errs.NewAppError(op, err)
 	}
 
+	connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
+	if ok {
+		connHdlr(session.UserID)
+	}
+
 	log.Info("e2ee connection established successfully", idsLog...)
 	go ns.handleConnection(session)
 	close(session.ReadyChan)
 	return nil
 
 }
+
+// func (ns *networkingServ) reconnect(ctx context.Context, session *models.Session, remoteUfrag, remotePwd string) error {
+// 	op := "networking.reconnect"
+// 	log := ns.logger.AddOp(op)
+// 	userIdLog := logger.Attr("userId", ns.userId)
+// 	receiverIdLog := logger.Attr("receiverId", session.UserID)
+// 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+// 	log.Info("reconnecting...", idsLog...)
+// 	if err := session.Agent.Restart(remoteUfrag, remotePwd); err != nil {
+// 		log.Error("failed to restart agent", logger.Err(err), userIdLog, receiverIdLog)
+// 		return errs.NewAppError(op, err)
+// 	}
+// 	localFrag, localPwd, err := session.Agent.GetLocalUserCredentials()
+// 	if err != nil {
+// 		log.Error("failed to get local user credentials", logger.Err(err), receiverIdLog, userIdLog)
+// 		return errs.NewAppError(op, err)
+// 	}
+// 	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
+// 	sdp := utils.SetFirstByte(CREDS, creds)
+// 	log.Debug("sdp (credentials) creating", receiverIdLog, userIdLog)
+// 	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
+// 		log.Error("failed to create new sdp (credentials)", logger.Err(err), receiverIdLog, userIdLog)
+// 		return errs.NewAppError(op, err)
+// 	}
+// 	go func() {
+// 		log.Info("candidate gathering...", receiverIdLog, userIdLog)
+// 		if err := session.Agent.GatherCandidates(); err != nil {
+// 			log.Error("failed to gather candidates", logger.Err(err), receiverIdLog, userIdLog)
+// 			ns.disconnectSession(session)
+// 		}
+// 	}()
+// 	return nil
+// }
 
 func (ns *networkingServ) handleConnection(session *models.Session) {
 	op := "networkingServ.handleConnection"
@@ -418,7 +532,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("connection handling...", idsLog...)
 	defer func() {
-		ns.disconnectSession(session)
+		//ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
 	go ns.receiveDatagrams(session)
@@ -435,6 +549,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session)
 				return
 			}
 			log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
@@ -444,12 +559,13 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 		secureStream, err := NewSecureStream(stream, session.Key)
 		if err != nil {
 			log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
+			continue
 		}
 
 		data, err := secureStream.Receive()
 		if err != nil {
 			log.Error("failed to read data from secure stream", logger.Err(err), userIdLog, receiverIdLog)
-			return
+			continue
 		}
 
 		if len(data) < 1 {
@@ -470,17 +586,18 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 	userIdLog := logger.Attr("userId", ns.userId)
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
-	sparseLog.Info(ns.receiveDatagramLogCount, "datagram receiving...", idsLog...)
-	ns.receiveDatagramLogCount = 0
+	var logCount uint32 = 0
+	sparseLog.Info(logCount, "datagram receiving...", idsLog...)
+
 	for {
-		ns.receiveDatagramLogCount++
+		logCount++
 		datagram, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
 				ns.disconnectSession(session)
 				return
 			}
-			sparseLog.Error(ns.receiveDatagramLogCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
+			sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
 			return
 		}
 		data, err := decipherDatagram(datagram, session.Key)
@@ -488,12 +605,12 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 			log.Error("failed to decipher datagram", logger.Err(err))
 		}
 		if len(data) < 1 {
-			sparseLog.Error(ns.receiveDatagramLogCount, "received empty data", userIdLog, receiverIdLog)
+			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
 			continue
 		}
 
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		sparseLog.Info(ns.receiveDatagramLogCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
+		sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
 		ns.processData(session.UserID, data)
 	}
 }

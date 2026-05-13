@@ -12,7 +12,7 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
 
 type NetworkingHandler struct {
@@ -56,7 +56,7 @@ func (nh *NetworkingHandler) Start() {
 			}
 			m = strings.TrimSpace(m)
 
-			if err := nh.SendMessage(m); err != nil {
+			if err := nh.SendMessage([]byte(m)); err != nil {
 				fmt.Println(err.Error())
 			}
 		case "sendVoice":
@@ -125,10 +125,10 @@ func (nh *NetworkingHandler) Disconnect() error {
 	return nil
 }
 
-func (nh *NetworkingHandler) SendMessage(msg string) error {
+func (nh *NetworkingHandler) SendMessage(msg []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
 	defer cancel()
-	data := utils.SetFirstByte(networking.CHAT, []byte(msg))
+	data := utils.SetFirstByte(networking.CHAT, msg)
 	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
 		return errs.ProcessError(err)
 	}
@@ -165,6 +165,14 @@ func (nh *NetworkingHandler) OnVideo(f func(id string, data []byte)) {
 
 func (nh *NetworkingHandler) OnVoice(f func(id string, data []byte)) {
 	nh.NetworkingServ.SaveVoiceHandler(f)
+}
+
+func (nh *NetworkingHandler) OnPeerConnected(f func(id string)) {
+	nh.NetworkingServ.SavePeerConnectedHandler(f)
+}
+
+func (nh *NetworkingHandler) OnPeerDisconnected(f func(id string)) {
+	nh.NetworkingServ.SavePeerDisconnectedHandler(f)
 }
 
 func (nh *NetworkingHandler) FetchOnline() ([]string, error) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
@@ -46,25 +47,27 @@ type NetworkingServ interface {
 	Disconnect() error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
-	SaveChatHandler(h handler)
-	SaveVoiceHandler(h handler)
-	SaveVideoHandler(h handler)
+	SaveChatHandler(h dataHandler)
+	SaveVoiceHandler(h dataHandler)
+	SaveVideoHandler(h dataHandler)
+	SavePeerConnectedHandler(h connectionHandler)
+	SavePeerDisconnectedHandler(h connectionHandler)
 	FetchOnline(ctx context.Context) ([]string, error)
 	FetchSessionsById(ctx context.Context, id string) ([]string, error)
 }
 
 type networkingServ struct {
-	userId                  string
-	signalingClient         client.SignalingClient
-	sessionRepo             repository.SessionRepository
-	receiveSDPs             chan client.ReplyMessage
-	sdpsGroup               singleflight.Group
-	logger                  *logger.Logger
-	cfg                     config.Networking
-	closeCtx                context.Context
-	tlsConf                 *tls.Config
-	sendDatagramLogCount    uint
-	receiveDatagramLogCount uint
+	userId               string
+	signalingClient      client.SignalingClient
+	sessionRepo          repository.SessionRepository
+	receiveSDPs          chan client.ReplyMessage
+	sdpsGroup            singleflight.Group
+	logger               *logger.Logger
+	cfg                  config.Networking
+	closeCtx             context.Context
+	tlsConf              *tls.Config
+	sendDatagramLogCount atomic.Uint32
+	fetchLogCount        atomic.Uint32
 	handlers
 }
 
@@ -72,18 +75,19 @@ func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient
 	closeCtx, cancel := context.WithCancel(ctx)
 	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
 	ns := &networkingServ{
-		userId:                  id,
-		signalingClient:         sc,
-		sessionRepo:             sr,
-		receiveSDPs:             receiveSDPs,
-		sdpsGroup:               singleflight.Group{},
-		cfg:                     cfg,
-		logger:                  l,
-		closeCtx:                closeCtx,
-		tlsConf:                 tlsConf,
-		sendDatagramLogCount:    0,
-		receiveDatagramLogCount: 1,
+		userId:          id,
+		signalingClient: sc,
+		sessionRepo:     sr,
+		receiveSDPs:     receiveSDPs,
+		sdpsGroup:       singleflight.Group{},
+		cfg:             cfg,
+		logger:          l,
+		closeCtx:        closeCtx,
+		tlsConf:         tlsConf,
 	}
+
+	ns.sendDatagramLogCount.Store(0)
+	ns.sendDatagramLogCount.Store(1)
 
 	go func() {
 		if err := ns.receiveConnects(); err != nil {
@@ -262,22 +266,22 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 }
 
 func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
-	ns.sendDatagramLogCount++
+	ns.sendDatagramLogCount.Add(1)
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
 	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
 	userIdLog := logger.Attr("userId", ns.userId)
 	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
-	sparseLog.Info(ns.sendDatagramLogCount, "datagram sending", sendDatagramLog...)
+	sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sending", sendDatagramLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		sparseLog.Error(ns.sendDatagramLogCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
+		sparseLog.Error(ns.sendDatagramLogCount.Load(), "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		sparseLog.Info(ns.sendDatagramLogCount, "zero sessions", sendDatagramLog...)
+		sparseLog.Info(ns.sendDatagramLogCount.Load(), "zero sessions", sendDatagramLog...)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -292,10 +296,10 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 					return
 				}
 				if err := s.Conn.SendDatagram(cipherDatagram); err != nil {
-					sparseLog.Error(ns.sendDatagramLogCount, "failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+					log.Error("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return
 				}
-				sparseLog.Info(ns.sendDatagramLogCount, "datagram sent", sendDatagramLog...)
+				sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sent", sendDatagramLog...)
 
 			}(s)
 		}
@@ -305,9 +309,11 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 }
 
 func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
+	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchOnline"
 	log := ns.logger.AddOp(op)
-	log.Info("online fetching...")
+	sparceLog := log.Sparse(ns.cfg.FetchLogTargetCount)
+	sparceLog.Info(ns.fetchLogCount.Load(), "online fetching...")
 	onlineIdsByte, err := ns.signalingClient.GetOnline(ctx)
 	if err != nil {
 		log.Error("failed to fetch online", logger.Err(err))
@@ -318,15 +324,17 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 		log.Error("failed to unmarshal online", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("online fetched successfully")
+	sparceLog.Info(ns.fetchLogCount.Load(), "online fetched successfully")
 	return onlineIds, nil
 
 }
 
 func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]string, error) {
+	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchSessions"
 	log := ns.logger.AddOp(op)
-	log.Info("sessions by id fetching...")
+	sparceLog := log.Sparse(ns.cfg.FetchLogTargetCount)
+	sparceLog.Info(ns.fetchLogCount.Load(), "sessions by id fetching...")
 	sessionsByte, err := ns.signalingClient.GetSessionsById(ctx, id)
 	if err != nil {
 		log.Error("failed to fetch sessions by id", logger.Err(err))
@@ -337,6 +345,6 @@ func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]s
 		log.Error("failed to unmarshal sessions by id", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	log.Info("sessions by id fetched successfully")
+	sparceLog.Info(ns.fetchLogCount.Load(), "sessions by id fetched successfully")
 	return sessions, nil
 }

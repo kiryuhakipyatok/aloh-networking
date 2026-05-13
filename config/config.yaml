@@ -10,7 +10,7 @@ signaling:
   address: "164.90.163.153"
   port: "1234"
   handshakeTimeout: 10s
-  idleTimeout: 10m
+  maxIdleTimeout: 40s
   keepAlivePeriodTimeout: 10s
   closeTimeout: 10s
   startTimeout: 10s
@@ -20,7 +20,7 @@ signaling:
 
 networking:
   handshakeTimeout: 10s
-  idleTimeout: 10m
+  maxIdleTimeout: 40s
   keepAlivePeriodTimeout: 10s
   nextProtos: ["aloh-networking"]
   stunHost: "164.90.163.153"
@@ -30,11 +30,13 @@ networking:
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
   establishConnTimeout: 30s
-  datagramLogTargetCount: 1000
+  datagramLogTargetCount: 500
+  fetchLogTargetCount: 100
+  disconnectedTimeout: 20s
 
 handler:
-  sendChatTimeout: 10s
-  sendVideoTimeout: 10s
-  sendVoiceTimeout: 10s
-  connectTimeout: 10s
-  fetchOnlineTimeout: 10s
+  sendChatTimeout: 5s
+  sendVideoTimeout: 5s
+  sendVoiceTimeout: 5s
+  connectTimeout: 5s
+  fetchOnlineTimeout: 5s

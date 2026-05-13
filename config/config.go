@@ -31,7 +31,7 @@ type App struct {
 type Signaling struct {
 	Address                string        `mapstructure:"address"`
 	Port                   string        `mapstructure:"port"`
-	IdleTimeout            time.Duration `mapstructure:"idleTimeout"`
+	MaxIdleTimeout         time.Duration `mapstructure:"maxIdleTimeout"`
 	HandshakeTimeout       time.Duration `mapstructure:"handshakeTimeout"`
 	KeepAlivePeriodTimeout time.Duration `mapstructure:"keepAlivePeriodTimeout"`
 	CloseTimeout           time.Duration `mapstructure:"closeTimeout"`
@@ -43,7 +43,7 @@ type Signaling struct {
 }
 
 type Networking struct {
-	IdleTimeout            time.Duration `mapstructure:"idleTimeout"`
+	MaxIdleTimeout         time.Duration `mapstructure:"maxIdleTimeout"`
 	HandshakeTimeout       time.Duration `mapstructure:"handshakeTimeout"`
 	KeepAlivePeriodTimeout time.Duration `mapstructure:"keepAlivePeriodTimeout"`
 	NextProtos             []string      `mapstructure:"nextProtos"`
@@ -54,7 +54,9 @@ type Networking struct {
 	NewSDPTimeout          time.Duration `mapstructure:"newSDPTimeout"`
 	SendInStreamTimeout    time.Duration `mapstructure:"sendInStreamTimeout"`
 	EstablishConnTimeout   time.Duration `mapstructure:"establishConnTimeout"`
-	DatagramLogTargetCount uint          `mapstructure:"datagramLogTargetCount"`
+	DatagramLogTargetCount uint32        `mapstructure:"datagramLogTargetCount"`
+	FetchLogTargetCount    uint32        `mapstructure:"fetchLogTargetCount"`
+	DisconnectedTimeout    time.Duration `mapstructure:"disconnectedTimeout"`
 }
 
 type Handler struct {

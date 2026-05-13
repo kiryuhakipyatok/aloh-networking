@@ -3,14 +3,15 @@ package repository
 import (
 	"context"
 	"errors"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"sync"
+
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 type SessionRepository interface {
 	Add(ctx context.Context, id string, session *models.Session) error
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string, session *models.Session) error
 	Fetch(ctx context.Context) ([]*models.Session, error)
 	Get(ctx context.Context, id string) (*models.Session, error)
 	Clear(ctx context.Context) error
@@ -37,13 +38,13 @@ func (ag *sessionRepository) Add(ctx context.Context, id string, session *models
 	}
 }
 
-func (ag *sessionRepository) Delete(ctx context.Context, id string) error {
+func (ag *sessionRepository) Delete(ctx context.Context, id string, session *models.Session) error {
 	op := "sessionRepository.Delete"
 	select {
 	case <-ctx.Done():
 		return errs.ErrRequestTimeout(op)
 	default:
-		if _, ok := ag.LoadAndDelete(id); !ok {
+		if deleted := ag.CompareAndDelete(id, session); !deleted {
 			return errs.ErrNotFound(op)
 		}
 		return nil

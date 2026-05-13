@@ -67,7 +67,7 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 		if err := networkingService.Disconnect(); err != nil {
 			log.Error("failed to disconnect sessoions", logger.Err(err))
 		}
-		if err := signalingClient.Close(0, "close"); err != nil {
+		if err := signalingClient.CloseConnection(0, "close"); err != nil {
 			log.Error("failed to close signaling client", logger.Err(err))
 		}
 		close(sendSDP)
@@ -122,7 +122,7 @@ func Run() {
 		} else {
 			res = result.Text()
 		}
-		if err := networkingHandler.SendMessage(res); err != nil {
+		if err := networkingHandler.SendMessage([]byte(res)); err != nil {
 			fmt.Println(err)
 		}
 

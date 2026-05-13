@@ -45,7 +45,7 @@ func (n *Netwoking) Disconnect() error {
 	return nil
 }
 
-func (n *Netwoking) SendMessage(msg string) error {
+func (n *Netwoking) SendMessage(msg []byte) error {
 	if err := n.Handler.SendMessage(msg); err != nil {
 		return err
 	}
@@ -99,6 +99,24 @@ func (n *Netwoking) RegisterOnVoice(cb func(id string, data []byte)) {
 			return
 		}
 		cb(id, data)
+	})
+}
+
+func (n *Netwoking) RegisterOnPeerConnected(cb func(id string)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnPeerConnected(func(id string) {
+		cb(id)
+	})
+}
+
+func (n *Netwoking) RegisterOnPeerDisconnected(cb func(id string)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnPeerDisconnected(func(id string) {
+		cb(id)
 	})
 }
 

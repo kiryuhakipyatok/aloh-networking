@@ -16,6 +16,7 @@ const (
 	CHAT_ERROR
 	VOICE_ERROR
 	VIDEO_ERROR
+	OFFLINE
 	INTERNAL_ERROR
 )
 
@@ -33,17 +34,17 @@ func NewErrorMessage(code uint) ErrorCode {
 	}
 }
 
-func chatErrorMessage() ErrorCode {
-	return NewErrorMessage(CHAT_ERROR)
-}
+// func chatErrorMessage() ErrorCode {
+// 	return NewErrorMessage(CHAT_ERROR)
+// }
 
-func voiceErrorMessage() ErrorCode {
-	return NewErrorMessage(VOICE_ERROR)
-}
+// func voiceErrorMessage() ErrorCode {
+// 	return NewErrorMessage(VOICE_ERROR)
+// }
 
-func videoErrorMessage() ErrorCode {
-	return NewErrorMessage(VIDEO_ERROR)
-}
+// func videoErrorMessage() ErrorCode {
+// 	return NewErrorMessage(VIDEO_ERROR)
+// }
 
 func internalServerErrorMessage() ErrorCode {
 	return NewErrorMessage(INTERNAL_ERROR)
@@ -65,6 +66,10 @@ func errorValidationMessage() ErrorCode {
 	return NewErrorMessage(VALIDATION_ERROR)
 }
 
+func errorOfflineMessage() ErrorCode {
+	return NewErrorMessage(OFFLINE)
+}
+
 func ProcessError(err error) error {
 	switch {
 	case errors.Is(err, errs.ErrAlreadyExistsBase):
@@ -75,6 +80,8 @@ func ProcessError(err error) error {
 		return errorRequestTimeoutMessage()
 	case errors.Is(err, errs.ErrValidationBase):
 		return errorValidationMessage()
+	case errors.Is(err, errs.ErrOfflineBase):
+		return errorOfflineMessage()
 	default:
 		return internalServerErrorMessage()
 	}

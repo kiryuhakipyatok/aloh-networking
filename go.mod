@@ -3,6 +3,7 @@ module github.com/kiryuhakipyatok/aloh-networking
 go 1.26
 
 require (
+	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/pion/ice/v2 v2.3.38
