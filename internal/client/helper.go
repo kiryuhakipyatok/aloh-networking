@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"sync"
 
@@ -77,7 +78,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	sc.clearPendingResponses()
 	sc.isOnline.Store(false)
 
-	if sc.conn != nil && sc.ctrlStream != nil {
+	if sc.conn != nil && sc.ctrlStream != nil && !errors.Is(ferr, ctx.Err()) {
 		if err := sc.CloseConnection(0, "conenction lost"); err != nil {
 			log.Error("failed to close connection when connection lost", logger.Err(err))
 		}
