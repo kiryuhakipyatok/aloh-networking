@@ -41,7 +41,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 
 	b.Reset()
 	sc.isOnline.Store(true)
-	
+
 	errChan := make(chan error, 3)
 
 	var wg sync.WaitGroup
@@ -78,7 +78,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	sc.isOnline.Store(false)
 
 	if sc.conn != nil && sc.ctrlStream != nil {
-		if err := sc.Close(0, "conenction lost"); err != nil {
+		if err := sc.CloseConnection(0, "conenction lost"); err != nil {
 			log.Error("failed to close connection when connection lost", logger.Err(err))
 		}
 		sc.conn = nil

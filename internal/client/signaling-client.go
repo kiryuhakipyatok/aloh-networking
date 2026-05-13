@@ -18,7 +18,7 @@ import (
 )
 
 type SignalingClient interface {
-	Close(code uint, desc string) error
+	CloseConnection(code uint, desc string) error
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 	GetOnline(ctx context.Context) ([]byte, error)
 	GetSessionsById(ctx context.Context, id string) ([]byte, error)
@@ -122,12 +122,12 @@ func (sc *signalingClient) Run(ctx context.Context, id string, connConf connConf
 	}
 }
 
-func (sc *signalingClient) Close(code uint, desc string) error {
+func (sc *signalingClient) CloseConnection(code uint, desc string) error {
 	var (
 		op  = "signalingClient.Close"
 		log = sc.logger.AddOp(op)
 	)
-	log.Info("siganling client closing...")
+	log.Info("siganling client connection closing...")
 	if sc.conn != nil {
 		if err := sc.conn.CloseWithError(quic.ApplicationErrorCode(code), desc); err != nil {
 			log.Info("failed to close quic connection", logger.Err(err))
@@ -146,7 +146,7 @@ func (sc *signalingClient) Close(code uint, desc string) error {
 		}
 	}
 
-	log.Info("signaling client closed successfully")
+	log.Info("signaling client connection closed successfully")
 	return nil
 }
 

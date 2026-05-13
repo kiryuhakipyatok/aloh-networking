@@ -223,7 +223,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		log.Info("candidate gathering...", ridLog, userIdLog)
 		if err := agent.GatherCandidates(); err != nil {
 			log.Error("failed to gather candidates", logger.Err(err), ridLog, userIdLog)
-			ns.disconnectSession(session)
+			//ns.disconnectSession(session)
 			return
 		}
 	}()
@@ -525,7 +525,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("connection handling...", idsLog...)
 	defer func() {
-		ns.disconnectSession(session)
+		//ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
 	go ns.receiveDatagrams(session)
