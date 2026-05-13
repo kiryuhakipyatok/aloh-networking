@@ -182,7 +182,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	})
 	if err = agent.OnConnectionStateChange(func(c ice.ConnectionState) {
 		if c == FAILED || c == DISCONNECTED {
-			log.Info("ice connection failed, closing session and reconnect", ridLog)
+			log.Info("ice connection failed, reconnect", ridLog)
 			ns.resetSession(session)
 			if session.IsInitiator {
 				go func() {
@@ -224,6 +224,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 		if err := agent.GatherCandidates(); err != nil {
 			log.Error("failed to gather candidates", logger.Err(err), ridLog, userIdLog)
 			ns.disconnectSession(session)
+			return
 		}
 	}()
 	log.Debug("session saving...", ridLog, userIdLog)
@@ -524,7 +525,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("connection handling...", idsLog...)
 	defer func() {
-		//ns.disconnectSession(session)
+		ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
 	go ns.receiveDatagrams(session)
