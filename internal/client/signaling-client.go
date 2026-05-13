@@ -101,7 +101,6 @@ func (sc *signalingClient) Run(ctx context.Context, id string, connConf connConf
 	log := sc.logger.AddOp(op)
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 1 * time.Second
-	b.MaxInterval = 0
 	for {
 		err := sc.serveConnection(ctx, id, b, connConf)
 
