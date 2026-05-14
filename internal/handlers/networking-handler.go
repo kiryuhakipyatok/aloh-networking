@@ -140,7 +140,7 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	defer cancel()
 	data = utils.SetFirstByte(networking.VOICE, data)
 	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
-		return err
+		return errs.ProcessError(err)
 	}
 	return nil
 }
