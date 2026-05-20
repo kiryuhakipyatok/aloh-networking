@@ -196,7 +196,7 @@ func (ns *networkingServ) Disconnect() error {
 	}
 	for _, session := range sessions {
 		wg.Go(func() {
-			ns.disconnectSession(session)
+			ns.disconnectSession(session, true)
 		})
 	}
 	wg.Wait()
