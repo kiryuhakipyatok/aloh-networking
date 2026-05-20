@@ -20,5 +20,11 @@ deploy-job:
     - cp $ENV_FILE .env
     - docker-compose down --remove-orphans
     - docker-compose up -d --build
+    - R_EXIT_CODE=$(docker inspect -f '{{.State.ExitCode}}' networking-bot-111)
+    - if [ "$R_EXIT_CODE" -ne 0 ]; then
+        echo "container failed with exit code $R_EXIT_CODE";
+        docker logs networking-bot-111;
+        exit 1;
+      fi  
     - sleep 5
-    - docker-compose logs user-000
+    - docker-compose logs networking-bot-111
