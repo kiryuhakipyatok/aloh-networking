@@ -2,7 +2,8 @@ package client
 
 import (
 	"encoding/json"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+
+	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 	ADD_IN_SESSION
 	GET_SESSIONS_BY_ID
 	DELETE_FROM_SESSION
+	GET_ONLINE_FRIENDS
 )
 
 const (
@@ -37,6 +39,10 @@ type Message struct {
 
 type UserId struct {
 	ID string `json:"id" validate:"required,min=1"`
+}
+
+type FriendsIds struct {
+	Ids []string `json:"ids" validate:"required,min=1"`
 }
 
 type SendPayloadMessage struct {

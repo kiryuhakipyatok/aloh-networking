@@ -22,6 +22,7 @@ type SignalingClient interface {
 	NewSDP(ctx context.Context, sdp []byte, ids []string) error
 	GetOnline(ctx context.Context) ([]byte, error)
 	GetSessionsById(ctx context.Context, id string) ([]byte, error)
+	GetFriendsOnline(ctx context.Context, ids []string) ([]byte, error)
 	AddInSession(ctx context.Context, id string) error
 	DeleteFromSession(ctx context.Context, id string) error
 	GetCreds(ctx context.Context) (string, string, error)
@@ -194,6 +195,7 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 	}
 	sendData, err := json.Marshal(userId)
 	if err != nil {
+		log.Error("failed to marshal user id", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
 	sessions, err := sc.getPayload(ctx, GET_SESSIONS_BY_ID, sendData)
@@ -204,6 +206,30 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 
 	//log.Info("sessions by id fetched from signaling")
 	return sessions, nil
+}
+
+func (sc *signalingClient) GetFriendsOnline(ctx context.Context, ids []string) ([]byte, error) {
+	var (
+		op  = "signalingClient.GetFriendsOnline"
+		log = sc.logger.AddOp(op)
+	)
+	//log.Info("fetching sessions by id from signaling...")
+	friendsIds := FriendsIds{
+		Ids: ids,
+	}
+	sendData, err := json.Marshal(friendsIds)
+	if err != nil {
+		log.Error("failed to marshal friends ids", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	onlineFriends, err := sc.getPayload(ctx, GET_ONLINE_FRIENDS, sendData)
+	if err != nil {
+		log.Error("failed to get online friends from signaling", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+
+	//log.Info("sessions by id fetched from signaling")
+	return onlineFriends, nil
 }
 
 func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
@@ -218,6 +244,7 @@ func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
 	}
 	data, err := json.Marshal(userId)
 	if err != nil {
+		log.Error("failed to marshal user id", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
 
@@ -239,6 +266,7 @@ func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) err
 	}
 	data, err := json.Marshal(userId)
 	if err != nil {
+		log.Error("failed to marshal user id", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
 

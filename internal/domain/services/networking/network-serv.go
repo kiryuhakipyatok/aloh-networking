@@ -54,6 +54,7 @@ type NetworkingServ interface {
 	SavePeerDisconnectedHandler(h connectionHandler)
 	FetchOnline(ctx context.Context) ([]string, error)
 	FetchSessionsById(ctx context.Context, id string) ([]string, error)
+	FetchOnlineFriends(ctx context.Context, friends []string) (map[string][]string, error)
 }
 
 type networkingServ struct {
@@ -326,6 +327,27 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 	}
 	sparceLog.Info(ns.fetchLogCount.Load(), "online fetched successfully")
 	return onlineIds, nil
+
+}
+
+func (ns *networkingServ) FetchOnlineFriends(ctx context.Context, friends []string) (map[string][]string, error) {
+	ns.fetchLogCount.Add(1)
+	op := "networkingServ.FetchOnlineFriends"
+	log := ns.logger.AddOp(op)
+	sparceLog := log.Sparse(ns.cfg.FetchLogTargetCount)
+	sparceLog.Info(ns.fetchLogCount.Load(), "online friends fetching...")
+	onlineFriendsByte, err := ns.signalingClient.GetFriendsOnline(ctx, friends)
+	if err != nil {
+		log.Error("failed to fetch online friends", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	var onlineFriends map[string][]string
+	if err := json.Unmarshal(onlineFriendsByte, &onlineFriends); err != nil {
+		log.Error("failed to unmarshal online friends", logger.Err(err))
+		return nil, errs.NewAppError(op, err)
+	}
+	sparceLog.Info(ns.fetchLogCount.Load(), "online friends fetched successfully")
+	return onlineFriends, nil
 
 }
 
