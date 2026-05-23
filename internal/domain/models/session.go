@@ -8,12 +8,13 @@ import (
 )
 
 type Session struct {
-	UserID      string
-	Agent       *ice.Agent
-	Conn        *quic.Conn
-	IsInitiator bool
-	CredsChan   chan struct{}
-	Closing     sync.Once
-	ReadyChan   chan struct{}
-	Key         []byte
+	UserID          string
+	CurrentConnects []string
+	Agent           *ice.Agent
+	Conn            *quic.Conn
+	IsInitiator     bool
+	CredsChan       chan struct{}
+	Closing         sync.Once
+	ReadyChan       chan struct{}
+	Key             []byte
 }

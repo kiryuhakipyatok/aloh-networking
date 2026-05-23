@@ -135,3 +135,11 @@ func (n *Netwoking) FetchSessions(id string) ([]string, error) {
 	}
 	return sessions, nil
 }
+
+func (n *Netwoking) FetchFriends(ids []string) (map[string][]string, error) {
+	friends, err := n.Handler.FetchOnlineFriends(ids)
+	if err != nil {
+		return nil, err
+	}
+	return friends, nil
+}

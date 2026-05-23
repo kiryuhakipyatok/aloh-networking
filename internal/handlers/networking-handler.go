@@ -194,3 +194,14 @@ func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
 	}
 	return sessions, nil
 }
+
+func (nh *NetworkingHandler) FetchOnlineFriends(ids []string) (map[string][]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
+	defer cancel()
+	friends, err := nh.NetworkingServ.FetchOnlineFriends(ctx, ids)
+	if err != nil {
+		return nil, errs.ProcessError(err)
+	}
+	return friends, nil
+}
+
