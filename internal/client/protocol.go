@@ -42,7 +42,7 @@ type UserId struct {
 }
 
 type FriendsIds struct {
-	Ids []string `json:"ids" validate:"required,min=1"`
+	Ids []string `json:"friendsIds" validate:"required,min=1"`
 }
 
 type SendPayloadMessage struct {
