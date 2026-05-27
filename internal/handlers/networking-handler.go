@@ -125,6 +125,15 @@ func (nh *NetworkingHandler) Disconnect() error {
 	return nil
 }
 
+func (nh *NetworkingHandler) DisconnectById(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
+	defer cancel()
+	if err := nh.NetworkingServ.DisconnectFromId(ctx, id); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
 func (nh *NetworkingHandler) SendMessage(msg []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
 	defer cancel()
@@ -204,4 +213,3 @@ func (nh *NetworkingHandler) FetchOnlineFriends(ids []string) (map[string][]stri
 	}
 	return friends, nil
 }
-

@@ -45,6 +45,7 @@ const (
 type NetworkingServ interface {
 	Connect(ctx context.Context, rid string) error
 	Disconnect() error
+	DisconnectFromId(ctx context.Context, sessionId string) error 
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
 	SaveChatHandler(h dataHandler)
@@ -202,6 +203,23 @@ func (ns *networkingServ) Disconnect() error {
 	}
 	wg.Wait()
 	log.Info("disconnected successfully")
+	return nil
+}
+
+func (ns *networkingServ) DisconnectFromId(ctx context.Context, sessionId string) error {
+	op := "networkingServ.DisconnectFrom"
+	log := ns.logger.AddOp(op)
+	sessionIdLog := logger.Attr("sessionId", sessionId)
+	log.Info("disconnecting from session", sessionIdLog)
+	session, err := ns.sessionRepo.Get(ctx, sessionId)
+	if err != nil {
+		log.Error("failed to get session", logger.Err(err), sessionIdLog)
+		return errs.NewAppError(op, err)
+	}
+
+	ns.disconnectSession(session, true)
+
+	log.Info("disconnected from session successfully")
 	return nil
 }
 
