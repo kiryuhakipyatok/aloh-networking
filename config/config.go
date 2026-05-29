@@ -64,6 +64,7 @@ type Handler struct {
 	SendChatTimeout    time.Duration `mapstructure:"sendChatTimeout"`
 	SendVoiceTimeout   time.Duration `mapstructure:"sendVoiceTimeout"`
 	ConnectTimeout     time.Duration `mapstructure:"connectTimeout"`
+	DisonnectTimeout     time.Duration `mapstructure:"disconnectTimeout"`
 	FetchOnlineTimeout time.Duration `mapstructure:"fetchOnlineTimeout"`
 }
 

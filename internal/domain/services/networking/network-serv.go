@@ -44,8 +44,9 @@ const (
 
 type NetworkingServ interface {
 	Connect(ctx context.Context, rid string) error
+	ConnectById(ctx context.Context, rid string) error
 	Disconnect() error
-	DisconnectFromId(ctx context.Context, sessionId string) error 
+	DisconnectFromId(ctx context.Context, sessionId string) error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
 	SaveChatHandler(h dataHandler)
@@ -179,6 +180,37 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	if err := g.Wait(); err != nil {
 		return errs.NewAppError(op, err)
 	}
+	return nil
+}
+
+func (ns *networkingServ) ConnectById(ctx context.Context, rid string) error {
+	op := "networkingServ.ConnectById"
+	log := ns.logger.AddOp(op)
+
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", rid)
+	log.Info("connecting by id...", userIdLog, receiverIdLog)
+	mergeCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-mergeCtx.Done():
+		case <-ns.closeCtx.Done():
+			cancel()
+		}
+	}()
+
+	if rid == ns.userId {
+		return errs.ErrConnToHimself(op)
+	}
+
+	session, err := ns.createAndEstablish(mergeCtx, rid, INITIATOR)
+	if err != nil {
+		log.Error("failed to create and establish connection", logger.Err(err), userIdLog, receiverIdLog)
+		return errs.NewAppError(op, err)
+	}
+	<-session.ReadyChan
+	log.Info("connected by id successfully", userIdLog, receiverIdLog)
 	return nil
 }
 

@@ -118,6 +118,15 @@ func (nh *NetworkingHandler) Connect(receiverId string) error {
 	return nil
 }
 
+func (nh *NetworkingHandler) ConnectById(receiverId string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
+	defer cancel()
+	if err := nh.NetworkingServ.ConnectById(ctx, receiverId); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
 func (nh *NetworkingHandler) Disconnect() error {
 	if err := nh.NetworkingServ.Disconnect(); err != nil {
 		return errs.ProcessError(err)
@@ -126,7 +135,7 @@ func (nh *NetworkingHandler) Disconnect() error {
 }
 
 func (nh *NetworkingHandler) DisconnectById(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.DisonnectTimeout)
 	defer cancel()
 	if err := nh.NetworkingServ.DisconnectFromId(ctx, id); err != nil {
 		return errs.ProcessError(err)

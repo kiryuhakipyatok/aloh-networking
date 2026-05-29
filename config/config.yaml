@@ -39,4 +39,5 @@ handler:
   sendVideoTimeout: 5s
   sendVoiceTimeout: 5s
   connectTimeout: 5s
+  disconnectTimeout: 5s
   fetchOnlineTimeout: 5s
