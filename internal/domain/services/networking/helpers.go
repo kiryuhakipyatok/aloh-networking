@@ -481,12 +481,12 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		return errs.NewAppError(op, err)
 	}
 
-	//if !session.IsInitiator {
+	if !session.IsInitiator {
 		connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
 		if ok {
 			connHdlr(session.UserID)
 		}
-	//}
+	}
 
 	log.Info("e2ee connection established successfully", idsLog...)
 	go ns.handleConnection(session)
