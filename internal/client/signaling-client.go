@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kiryuhakipyatok/aloh-networking/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 

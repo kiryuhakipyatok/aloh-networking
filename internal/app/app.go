@@ -2,21 +2,15 @@ package app
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
-
-	"github.com/kiryuhakipyatok/aloh-networking/config"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
-	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/joho/godotenv"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
+	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 )
 
 func loadEnv() error {
@@ -35,12 +29,12 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc, config.Handler, error) {
+func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
-	cfg := config.NewConfig()
-	log := logger.NewLogger(cfg.App, logPath)
+	//cfg := config.NewConfig()
+	log := logger.NewLogger(cfg.App, cfg.App.LogPath)
 	log.Info("initializing library...")
 
 	sessionRepo := repository.NewSessionRepository()
@@ -54,7 +48,7 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 	if err != nil {
 		log.Error("failed to create signaling client", logger.Err(err))
 		cancel()
-		return nil, nil, config.Handler{}, err
+		return nil, nil, err
 	}
 	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
 
@@ -72,35 +66,35 @@ func Init(userID, logPath string) (networking.NetworkingServ, context.CancelFunc
 		close(sendSDP)
 		close(receiveSDP)
 		log.Info("library stopped")
-	}, cfg.Handler, nil
+	}, nil
 }
 
-func Run() {
-	id := flag.String("id", "123", "user id")
-	flag.Parse()
+// func Run() {
+// 	id := flag.String("id", "123", "user id")
+// 	flag.Parse()
 
-	networkingServ, close, handlerCfg, err := Init(*id, "")
-	if err != nil {
-		panic(fmt.Errorf("failed to init networking service: %w", err))
-	}
+// 	networkingServ, close, handlerCfg, err := Init(*id, "")
+// 	if err != nil {
+// 		panic(fmt.Errorf("failed to init networking service: %w", err))
+// 	}
 
-	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
+// 	networkingHandler := handlers.NewNetworkingHandler(networkingServ, handlerCfg)
 
-	go networkingHandler.Start()
+// 	go networkingHandler.Start()
 
-	networkingHandler.OnChat(func(id string, data []byte) {
-		fmt.Println(id, ":", string(data))
-	})
-	networkingHandler.OnVideo(func(id string, data []byte) {
-		fmt.Println(id, ":", string(data))
-	})
-	networkingHandler.OnVoice(func(id string, data []byte) {
-		fmt.Println(id, ":", string(data))
-	})
+// 	networkingHandler.OnChat(func(id string, data []byte) {
+// 		fmt.Println(id, ":", string(data))
+// 	})
+// 	networkingHandler.OnVideo(func(id string, data []byte) {
+// 		fmt.Println(id, ":", string(data))
+// 	})
+// 	networkingHandler.OnVoice(func(id string, data []byte) {
+// 		fmt.Println(id, ":", string(data))
+// 	})
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+// 	quit := make(chan os.Signal, 1)
+// 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+// 	<-quit
 
-	close()
-}
+// 	close()
+// }

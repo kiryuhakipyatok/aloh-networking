@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
+
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"

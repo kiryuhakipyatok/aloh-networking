@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"os"
+
+	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
 )
 
 type Logger struct {
