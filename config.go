@@ -6,6 +6,10 @@ import (
 
 type (
 	Config     = config.Config
+	App        = config.App
+	Signaling  = config.Signaling
+	Networking = config.Networking
+	Handler    = config.Handler
 )
 
 // // func NewConfig() *Config {
