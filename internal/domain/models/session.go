@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/pion/ice/v2"
@@ -12,6 +13,9 @@ type Session struct {
 	CurrentConnects []string
 	Agent           *ice.Agent
 	Conn            *quic.Conn
+	EventStream     *quic.Stream
+	EventDecoder    *json.Decoder
+	EventEncoder    *json.Encoder
 	IsInitiator     bool
 	CredsChan       chan struct{}
 	Closing         sync.Once

@@ -143,6 +143,15 @@ func (nh *NetworkingHandler) DisconnectById(id string) error {
 	return nil
 }
 
+func (nh *NetworkingHandler) SendEvent(e networking.Event) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
+	defer cancel()
+	if err := nh.NetworkingServ.SendInEventStream(ctx, e); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
 func (nh *NetworkingHandler) SendMessage(msg []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
 	defer cancel()
@@ -191,6 +200,10 @@ func (nh *NetworkingHandler) OnPeerConnected(f func(id string)) {
 
 func (nh *NetworkingHandler) OnPeerDisconnected(f func(id string)) {
 	nh.NetworkingServ.SavePeerDisconnectedHandler(f)
+}
+
+func (nh *NetworkingHandler) OnEvent(f func(id string, e networking.Event)) {
+	nh.NetworkingServ.SaveEventHandler(f)
 }
 
 func (nh *NetworkingHandler) FetchOnline() ([]string, error) {

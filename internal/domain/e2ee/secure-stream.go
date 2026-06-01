@@ -1,10 +1,9 @@
-package networking
+package e2ee
 
 import (
 	"crypto/cipher"
 	"io"
 
-	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
@@ -16,7 +15,7 @@ type SecureStream[T quicStream] struct {
 }
 
 func NewSecureStream[T quicStream](quicStream T, key []byte) (*SecureStream[T], error) {
-	aesgcm, err := e2ee.NewAESCM(key)
+	aesgcm, err := NewAESCM(key)
 	if err != nil {
 		return nil, err
 	}
@@ -27,8 +26,24 @@ func NewSecureStream[T quicStream](quicStream T, key []byte) (*SecureStream[T], 
 	}, nil
 }
 
+func (ss *SecureStream[T]) Read(payload []byte) (n int, err error) {
+	stream, ok := any(ss.quicStream).(io.Reader)
+	if !ok {
+		return 0, errs.ErrInvalidType
+	}
+	return stream.Read(payload)
+}
+
+func (ss *SecureStream[T]) Write(payload []byte) (n int, err error) {
+	stream, ok := any(ss.quicStream).(io.Writer)
+	if !ok {
+		return 0, errs.ErrInvalidType
+	}
+	return stream.Write(payload)
+}
+
 func (ss *SecureStream[T]) Send(payload []byte) error {
-	cipherPayload, err := e2ee.CipherPayload(ss.aead, payload)
+	cipherPayload, err := CipherPayload(ss.aead, payload)
 	if err != nil {
 		return err
 	}
@@ -65,5 +80,5 @@ func (ss *SecureStream[T]) Receive() ([]byte, error) {
 		return nil, err
 	}
 
-	return e2ee.DecipherPayload(ss.aead, data)
+	return DecipherPayload(ss.aead, data)
 }

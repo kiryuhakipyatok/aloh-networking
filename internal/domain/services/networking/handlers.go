@@ -4,6 +4,7 @@ import "sync/atomic"
 
 type dataHandler func(id string, data []byte)
 type connectionHandler func(id string)
+type eventHandler func(id string, data Event)
 
 type handlers struct {
 	onChatHandler             atomic.Value
@@ -11,6 +12,7 @@ type handlers struct {
 	onVideoHandler            atomic.Value
 	onPeerConnectedHandler    atomic.Value
 	onPeerDisconnectedHandler atomic.Value
+	onEventHandler            atomic.Value
 }
 
 func (ns *networkingServ) SaveChatHandler(h dataHandler) {
@@ -31,4 +33,8 @@ func (ns *networkingServ) SavePeerConnectedHandler(h connectionHandler) {
 
 func (ns *networkingServ) SavePeerDisconnectedHandler(h connectionHandler) {
 	ns.onPeerDisconnectedHandler.Store(h)
+}
+
+func (ns *networkingServ) SaveEventHandler(h eventHandler) {
+	ns.onEventHandler.Store(h)
 }

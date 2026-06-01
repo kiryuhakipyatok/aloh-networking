@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
 )
@@ -54,6 +55,13 @@ func (n *Netwoking) Disconnect() error {
 
 func (n *Netwoking) DisconnectById(id string) error {
 	if err := n.Handler.DisconnectById(id); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *Netwoking) SendEvent(e networking.Event) error {
+	if err := n.Handler.SendEvent(e); err != nil {
 		return err
 	}
 	return nil
@@ -131,6 +139,15 @@ func (n *Netwoking) RegisterOnPeerDisconnected(cb func(id string)) {
 	}
 	n.Handler.OnPeerDisconnected(func(id string) {
 		cb(id)
+	})
+}
+
+func (n *Netwoking) RegisterOnEvent(cb func(id string, e networking.Event)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnEvent(func(id string, e networking.Event) {
+		cb(id, e)
 	})
 }
 

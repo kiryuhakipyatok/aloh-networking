@@ -10,6 +10,7 @@ import (
 
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
@@ -47,6 +48,7 @@ type NetworkingServ interface {
 	ConnectById(ctx context.Context, rid string) error
 	Disconnect() error
 	DisconnectFromId(ctx context.Context, sessionId string) error
+	SendInEventStream(ctx context.Context, e Event) error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
 	SaveChatHandler(h dataHandler)
@@ -54,6 +56,7 @@ type NetworkingServ interface {
 	SaveVideoHandler(h dataHandler)
 	SavePeerConnectedHandler(h connectionHandler)
 	SavePeerDisconnectedHandler(h connectionHandler)
+	SaveEventHandler(h eventHandler)
 	FetchOnline(ctx context.Context) ([]string, error)
 	FetchSessionsById(ctx context.Context, id string) ([]string, error)
 	FetchOnlineFriends(ctx context.Context, friends []string) (map[string][]string, error)
@@ -255,6 +258,37 @@ func (ns *networkingServ) DisconnectFromId(ctx context.Context, sessionId string
 	return nil
 }
 
+func (ns *networkingServ) SendInEventStream(ctx context.Context, e Event) error {
+	op := "networkingServ.SendInEventStream"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", ns.userId)
+	log.Info("event sending...", userIdLog)
+	sessions, err := ns.sessionRepo.Fetch(ctx)
+	if err != nil {
+		log.Info("failed to fetch sessions", logger.Err(err), userIdLog)
+		return errs.NewAppError(op, err)
+	}
+	if len(sessions) == 0 {
+		log.Info("zero sessions", logger.Err(err), userIdLog)
+		return errs.ErrNotFound(op)
+	}
+	for _, s := range sessions {
+		if s.Conn != nil {
+			go func(s *models.Session) {
+				recIdLog := logger.Attr("recieverId", s.UserID)
+				{
+					if err := s.EventEncoder.Encode(e); err != nil {
+						log.Error("failed to encode event", logger.Err(err), recIdLog, userIdLog)
+						return
+					}
+				}
+			}(s)
+		}
+	}
+	log.Info("event sent", userIdLog)
+	return nil
+}
+
 func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
@@ -287,7 +321,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 						return
 					}
 
-					secureStream, err := NewSecureStream(stream, s.Key)
+					secureStream, err := e2ee.NewSecureStream(stream, s.Key)
 					if err != nil {
 						log.Error("failed to create new secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 						return
@@ -341,7 +375,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 
 				recIdLog := logger.Attr("receiverId", s.UserID)
 
-				cipherDatagram, err := cipherDatagram(data, s.Key)
+				cipherDatagram, err := e2ee.CipherDatagram(data, s.Key)
 				if err != nil {
 					log.Error("failed to cipher datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 					return

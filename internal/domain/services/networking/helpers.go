@@ -3,6 +3,7 @@ package networking
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
+	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
@@ -55,6 +57,14 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		log := ns.logger.AddOp(op)
 		userIdLog := logger.Attr("userId", session.UserID)
 		log.Info("user disconnecting...", userIdLog)
+
+		if err := session.EventStream.Close(); err != nil {
+			log.Error("failed to close event stream", logger.Err(err), userIdLog)
+		}
+		select {
+		case <-session.EventStream.Context().Done():
+		case <-ns.closeCtx.Done():
+		}
 		if session.Conn != nil {
 			if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
@@ -482,10 +492,10 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	}
 
 	//if !session.IsInitiator {
-		connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
-		if ok {
-			connHdlr(session.UserID)
-		}
+	connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
+	if ok {
+		connHdlr(session.UserID)
+	}
 	//}
 
 	log.Info("e2ee connection established successfully", idsLog...)
@@ -539,8 +549,72 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		//ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
+	ns.proccessEventStream(session)
 	go ns.receiveDatagrams(session)
 	ns.receiveStreams(session)
+}
+
+func (ns *networkingServ) proccessEventStream(session *models.Session) {
+	op := "networkingServ.proccessEventStream"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", ns.userId)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+	log.Info("event stream processing...", idsLog...)
+	var (
+		eventStream *quic.Stream
+		err         error
+	)
+	if session.IsInitiator {
+		eventStream, err = session.Conn.OpenStreamSync(ns.closeCtx)
+		if err != nil {
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session, false)
+				return
+			}
+			log.Error("failed to open control stream", logger.Err(err), userIdLog, receiverIdLog)
+			return
+		}
+	} else {
+		eventStream, err = session.Conn.AcceptStream(ns.closeCtx)
+		if err != nil {
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+				ns.disconnectSession(session, false)
+				return
+			}
+			log.Error("failed to accept control stream", logger.Err(err), userIdLog, receiverIdLog)
+			return
+		}
+	}
+
+	secureEventStream, err := e2ee.NewSecureStream(eventStream, session.Key)
+	if err != nil {
+		if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+			ns.disconnectSession(session, false)
+			return
+		}
+		log.Error("failed to create secure event stream", logger.Err(err), userIdLog, receiverIdLog)
+		return
+	}
+
+	decoder := json.NewDecoder(secureEventStream)
+	encoder := json.NewEncoder(eventStream)
+	session.EventStream = eventStream
+	session.EventDecoder = decoder
+	session.EventEncoder = encoder
+	go func() {
+		for {
+			var event Event
+			if err := session.EventDecoder.Decode(&event); err != nil {
+				log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
+				continue
+			}
+			eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
+			if ok {
+				eventHndlr(session.UserID, event)
+			}
+		}
+	}()
 }
 
 func (ns *networkingServ) receiveStreams(session *models.Session) {
@@ -560,7 +634,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 			return
 		}
 
-		secureStream, err := NewSecureStream(stream, session.Key)
+		secureStream, err := e2ee.NewSecureStream(stream, session.Key)
 		if err != nil {
 			log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
 			continue
@@ -604,7 +678,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 			sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
 			return
 		}
-		data, err := decipherDatagram(datagram, session.Key)
+		data, err := e2ee.DecipherDatagram(datagram, session.Key)
 		if err != nil {
 			log.Error("failed to decipher datagram", logger.Err(err))
 		}
