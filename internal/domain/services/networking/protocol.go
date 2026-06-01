@@ -8,5 +8,5 @@ const (
 type Event struct {
 	Typee     uint
 	State     bool
-	Timestamp int
+	Timestamp int64
 }
