@@ -607,6 +607,10 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 		for {
 			var event Event
 			if err := session.EventDecoder.Decode(&event); err != nil {
+				if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
+					ns.disconnectSession(session, false)
+					return
+				}
 				log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
 				continue
 			}
