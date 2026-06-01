@@ -5,11 +5,11 @@ import (
 )
 
 type (
-	Config     = config.Config
-	App        = config.App
-	Signaling  = config.Signaling
+	Config    = config.Config
+	App       = config.App
+	Signaling = config.Signaling
 	Networking = config.Networking
-	Handler    = config.Handler
+	Handler = config.Handler
 )
 
 // // func NewConfig() *Config {
