@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 )
 
 type Logger struct {

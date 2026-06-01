@@ -8,8 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
+
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"

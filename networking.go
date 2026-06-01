@@ -3,6 +3,7 @@ package alohnetwork
 import (
 	"context"
 
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"
@@ -13,7 +14,7 @@ type Netwoking struct {
 	Cancel  context.CancelFunc
 }
 
-func NewNetworking(userId string, cfg Config) (*Netwoking, error) {
+func NewNetworking(userId string, cfg config.Config) (*Netwoking, error) {
 	service, cancel, err := app.Init(userId, cfg)
 	if err != nil {
 		return nil, errs.ProcessError(err)

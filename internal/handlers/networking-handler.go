@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/handlers"

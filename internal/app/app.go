@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
+	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
-	"github.com/kiryuhakipyatok/aloh-networking/internal/config"
+
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/repository"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
