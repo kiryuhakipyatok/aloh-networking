@@ -14,8 +14,8 @@ type Netwoking struct {
 	Cancel  context.CancelFunc
 }
 
-func NewNetworking(userId string, friends []string, cfg config.Config) (*Netwoking, error) {
-	service, cancel, err := app.Init(userId, friends, cfg)
+func NewNetworking(userId string, cfg config.Config) (*Netwoking, error) {
+	service, cancel, err := app.Init(userId, cfg)
 	if err != nil {
 		return nil, errs.ProcessError(err)
 	}

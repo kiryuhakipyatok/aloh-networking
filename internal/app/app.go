@@ -30,7 +30,7 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID string, friends []string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
+func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
