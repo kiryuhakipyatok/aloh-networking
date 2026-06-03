@@ -613,7 +613,9 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 					return
 				}
 				log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
-				continue
+
+				ns.disconnectSession(session, false)
+				return
 			}
 			eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
 			if ok {
