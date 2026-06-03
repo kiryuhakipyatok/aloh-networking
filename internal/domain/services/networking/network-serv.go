@@ -283,7 +283,7 @@ func (ns *networkingServ) SendInEventStream(ctx context.Context, e Event) error 
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
-		if s.Conn != nil {
+		if s.Conn != nil && s.EventStream != nil {
 			go func(s *models.Session) {
 				recIdLog := logger.Attr("recieverId", s.UserID)
 				{
@@ -319,40 +319,45 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	}
 	for _, s := range sessions {
 		if s.Conn != nil {
-			go func(s *models.Session) {
-				gctx, cancel := context.WithTimeout(context.Background(), ns.cfg.SendInStreamTimeout)
-				defer cancel()
-				recIdLog := logger.Attr("recieverId", s.UserID)
-				{
-					stream, err := s.Conn.OpenUniStreamSync(gctx)
-					if err != nil {
-						log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+			select {
+			case <-s.ReadyChan:
+				go func(s *models.Session) {
+					gctx, cancel := context.WithTimeout(context.Background(), ns.cfg.SendInStreamTimeout)
+					defer cancel()
+					recIdLog := logger.Attr("recieverId", s.UserID)
+					{
+						stream, err := s.Conn.OpenUniStreamSync(gctx)
+						if err != nil {
+							log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 
-						return
-					}
-
-					secureStream, err := e2ee.NewSecureStream(stream, s.Key)
-					if err != nil {
-						log.Error("failed to create new secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
-						return
-					}
-
-					if err := secureStream.Send(data); err != nil {
-						log.Error("failed to send data in secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
-						return
-					}
-
-					if err := secureStream.Close(); err != nil {
-						if cerr := utils.CheckErr(gctx, err); cerr == nil {
 							return
-
 						}
-						log.Error("failed to close secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
-						return
-					}
 
-				}
-			}(s)
+						secureStream, err := e2ee.NewSecureStream(stream, s.Key)
+						if err != nil {
+							log.Error("failed to create new secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+							return
+						}
+
+						if err := secureStream.Send(data); err != nil {
+							log.Error("failed to send data in secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+							return
+						}
+
+						if err := secureStream.Close(); err != nil {
+							if cerr := utils.CheckErr(gctx, err); cerr == nil {
+								return
+
+							}
+							log.Error("failed to close secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+							return
+						}
+
+					}
+				}(s)
+			default:
+			}
+
 		}
 	}
 	log.Info("message sent", sendMsgLog...)
@@ -381,22 +386,26 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	}
 	for _, s := range sessions {
 		if s.Conn != nil {
-			go func(s *models.Session) {
+			select {
+			case <-s.ReadyChan:
+				go func(s *models.Session) {
 
-				recIdLog := logger.Attr("receiverId", s.UserID)
+					recIdLog := logger.Attr("receiverId", s.UserID)
 
-				cipherDatagram, err := e2ee.CipherDatagram(data, s.Key)
-				if err != nil {
-					log.Error("failed to cipher datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
-					return
-				}
-				if err := s.Conn.SendDatagram(cipherDatagram); err != nil {
-					log.Error("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
-					return
-				}
-				sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sent", sendDatagramLog...)
+					cipherDatagram, err := e2ee.CipherDatagram(data, s.Key)
+					if err != nil {
+						log.Error("failed to cipher datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+						return
+					}
+					if err := s.Conn.SendDatagram(cipherDatagram); err != nil {
+						log.Error("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
+						return
+					}
+					sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sent", sendDatagramLog...)
 
-			}(s)
+				}(s)
+			default:
+			}
 		}
 	}
 

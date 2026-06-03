@@ -58,9 +58,10 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		log := ns.logger.AddOp(op)
 		userIdLog := logger.Attr("userId", session.UserID)
 		log.Info("user disconnecting...", userIdLog)
-
-		if err := session.EventStream.Close(); err != nil {
-			log.Error("failed to close event stream", logger.Err(err), userIdLog)
+		if session.EventEncoder != nil {
+			if err := session.EventStream.Close(); err != nil {
+				log.Error("failed to close event stream", logger.Err(err), userIdLog)
+			}
 		}
 		select {
 		case <-session.EventStream.Context().Done():
