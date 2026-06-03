@@ -64,7 +64,7 @@ type NetworkingServ interface {
 }
 
 type networkingServ struct {
-	userId               string
+	id                   string
 	signalingClient      client.SignalingClient
 	sessionRepo          repository.SessionRepository
 	receiveSDPs          chan client.ReplyMessage
@@ -78,17 +78,26 @@ type networkingServ struct {
 	handlers
 }
 
-func NewNetworkingServ(ctx context.Context, id string, sc client.SignalingClient, cfg config.Networking, l *logger.Logger, sr repository.SessionRepository, receiveSDPs chan client.ReplyMessage) NetworkingServ {
+type NewNetworkingSetup struct {
+	Id          string
+	SC          client.SignalingClient
+	Cfg         config.Networking
+	L           *logger.Logger
+	SR          repository.SessionRepository
+	ReceiveSDPs chan client.ReplyMessage
+}
+
+func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) NetworkingServ {
 	closeCtx, cancel := context.WithCancel(ctx)
-	tlsConf := utils.GenerateTLSConfig(cfg.NextProtos)
+	tlsConf := utils.GenerateTLSConfig(setup.Cfg.NextProtos)
 	ns := &networkingServ{
-		userId:          id,
-		signalingClient: sc,
-		sessionRepo:     sr,
-		receiveSDPs:     receiveSDPs,
+		id:              setup.Id,
+		signalingClient: setup.SC,
+		sessionRepo:     setup.SR,
+		receiveSDPs:     setup.ReceiveSDPs,
 		sdpsGroup:       singleflight.Group{},
-		cfg:             cfg,
-		logger:          l,
+		cfg:             setup.Cfg,
+		logger:          setup.L,
 		closeCtx:        closeCtx,
 		tlsConf:         tlsConf,
 	}
@@ -110,7 +119,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	op := "networkingServ.Connect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	mergeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
@@ -122,7 +131,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	}()
 	g, gCtx := errgroup.WithContext(mergeCtx)
 
-	if rid == ns.userId {
+	if rid == ns.id {
 		errMsg := "cannot connect to himself"
 		log.Error(errMsg, userIdLog)
 		return errors.New(errMsg)
@@ -166,7 +175,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 
 	if len(resultReceiversSessions) > 0 {
 		for _, ss := range resultReceiversSessions {
-			if ss != ns.userId {
+			if ss != ns.id {
 				g.Go(func() error {
 					receiverIdLog := logger.Attr("receiverId", ss)
 					session, err := ns.createAndEstablish(gCtx, ss, INITIATOR)
@@ -191,7 +200,7 @@ func (ns *networkingServ) ConnectById(ctx context.Context, rid string) error {
 	op := "networkingServ.ConnectById"
 	log := ns.logger.AddOp(op)
 
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverId", rid)
 	log.Info("connecting by id...", userIdLog, receiverIdLog)
 	mergeCtx, cancel := context.WithCancel(ctx)
@@ -204,7 +213,7 @@ func (ns *networkingServ) ConnectById(ctx context.Context, rid string) error {
 		}
 	}()
 
-	if rid == ns.userId {
+	if rid == ns.id {
 		return errs.ErrConnToHimself(op)
 	}
 
@@ -262,7 +271,7 @@ func (ns *networkingServ) DisconnectFromId(ctx context.Context, sessionId string
 func (ns *networkingServ) SendInEventStream(ctx context.Context, e Event) error {
 	op := "networkingServ.SendInEventStream"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	log.Info("event sending...", userIdLog)
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
@@ -293,7 +302,7 @@ func (ns *networkingServ) SendInEventStream(ctx context.Context, e Event) error 
 func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	payload := data[1:]
 	msgLenLog := logger.Attr("msgLen", len(payload))
 	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog)
@@ -356,7 +365,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	op := "networkingServ.SendDatagram"
 	log := ns.logger.AddOp(op)
 	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
 	sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sending", sendDatagramLog...)

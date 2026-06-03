@@ -13,6 +13,7 @@ type handlers struct {
 	onPeerConnectedHandler    atomic.Value
 	onPeerDisconnectedHandler atomic.Value
 	onEventHandler            atomic.Value
+	onOnlineFriendHandler     atomic.Value
 }
 
 func (ns *networkingServ) SaveChatHandler(h dataHandler) {
@@ -37,4 +38,8 @@ func (ns *networkingServ) SavePeerDisconnectedHandler(h connectionHandler) {
 
 func (ns *networkingServ) SaveEventHandler(h eventHandler) {
 	ns.onEventHandler.Store(h)
+}
+
+func (ns *networkingServ) SaveOnlineFriendHandler(h connectionHandler) {
+	ns.onOnlineFriendHandler.Store(h)
 }

@@ -119,7 +119,7 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	ridLog := logger.Attr("receiverId", rid)
 	select {
 	case <-ns.closeCtx.Done():
@@ -402,7 +402,7 @@ func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Se
 func (ns *networkingServ) establishConnection(ctx context.Context, session *models.Session) error {
 	op := "networkingServ.establishConnection"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	select {
@@ -509,7 +509,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 // func (ns *networkingServ) reconnect(ctx context.Context, session *models.Session, remoteUfrag, remotePwd string) error {
 // 	op := "networking.reconnect"
 // 	log := ns.logger.AddOp(op)
-// 	userIdLog := logger.Attr("userId", ns.userId)
+// 	userIdLog := logger.Attr("userId", ns.id)
 // 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 // 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 // 	log.Info("reconnecting...", idsLog...)
@@ -542,7 +542,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 func (ns *networkingServ) handleConnection(session *models.Session) {
 	op := "networkingServ.handleConnection"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("connection handling...", idsLog...)
@@ -558,7 +558,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 func (ns *networkingServ) proccessEventStream(session *models.Session) {
 	op := "networkingServ.proccessEventStream"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("event stream processing...", idsLog...)
@@ -625,7 +625,7 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 func (ns *networkingServ) receiveStreams(session *models.Session) {
 	op := "networkingServ.receiveStreams"
 	log := ns.logger.AddOp(op)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverid", session.UserID)
 	log.Info("streams receiving...", receiverIdLog, userIdLog)
 	for {
@@ -666,7 +666,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 	op := "networkingServ.receiveDatagrams"
 	log := ns.logger.AddOp(op)
 	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
-	userIdLog := logger.Attr("userId", ns.userId)
+	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	var logCount uint32 = 0

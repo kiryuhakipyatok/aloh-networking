@@ -30,7 +30,7 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
+func Init(userID string, friends []string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
@@ -51,7 +51,17 @@ func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.
 		cancel()
 		return nil, nil, err
 	}
-	networkingService := networking.NewNetworkingServ(ctx, userID, signalingClient, cfg.Networking, log, sessionRepo, receiveSDP)
+
+	networkingSetup := networking.NewNetworkingSetup{
+		Id:          userID,
+		L:           log,
+		SC:          signalingClient,
+		Cfg:         cfg.Networking,
+		SR:          sessionRepo,
+		ReceiveSDPs: receiveSDP,
+	}
+
+	networkingService := networking.NewNetworkingServ(ctx, networkingSetup)
 
 	log.Info("library initialized for user: " + userID)
 
