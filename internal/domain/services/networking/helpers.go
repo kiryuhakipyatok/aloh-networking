@@ -601,7 +601,7 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 	log.Info("secure event stream created", idsLog...)
 
 	decoder := json.NewDecoder(secureEventStream)
-	encoder := json.NewEncoder(eventStream)
+	encoder := json.NewEncoder(secureEventStream)
 	session.EventStream = eventStream
 	session.EventDecoder = decoder
 	session.EventEncoder = encoder

@@ -103,7 +103,6 @@ func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) Networking
 	}
 
 	ns.sendDatagramLogCount.Store(0)
-	ns.sendDatagramLogCount.Store(1)
 
 	go func() {
 		if err := ns.receiveConnects(); err != nil {
