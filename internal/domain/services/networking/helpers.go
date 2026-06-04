@@ -58,15 +58,17 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		log := ns.logger.AddOp(op)
 		userIdLog := logger.Attr("userId", session.UserID)
 		log.Info("user disconnecting...", userIdLog)
-		if session.EventEncoder != nil {
+		if session.EventStream != nil {
 			if err := session.EventStream.Close(); err != nil {
 				log.Error("failed to close event stream", logger.Err(err), userIdLog)
+			} else {
+				select {
+				case <-session.EventStream.Context().Done():
+				case <-ns.closeCtx.Done():
+				}
 			}
 		}
-		select {
-		case <-session.EventStream.Context().Done():
-		case <-ns.closeCtx.Done():
-		}
+
 		if session.Conn != nil {
 			if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
@@ -570,56 +572,53 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 	if session.IsInitiator {
 		eventStream, err = session.Conn.OpenStreamSync(ns.closeCtx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				ns.disconnectSession(session, false)
-				return
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+				log.Error("failed to open control stream", logger.Err(err), userIdLog, receiverIdLog)
 			}
-			log.Error("failed to open control stream", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session, false)
 			return
 		}
 	} else {
 		eventStream, err = session.Conn.AcceptStream(ns.closeCtx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				ns.disconnectSession(session, false)
-				return
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+				log.Error("failed to accept control stream", logger.Err(err), userIdLog, receiverIdLog)
 			}
-			log.Error("failed to accept control stream", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session, false)
 			return
 		}
 	}
 
 	secureEventStream, err := e2ee.NewSecureStream(eventStream, session.Key)
 	if err != nil {
-		if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-			ns.disconnectSession(session, false)
-			return
+		if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+			log.Error("failed to create secure event stream", logger.Err(err), userIdLog, receiverIdLog)
 		}
-		log.Error("failed to create secure event stream", logger.Err(err), userIdLog, receiverIdLog)
+		ns.disconnectSession(session, false)
 		return
 	}
+
+	log.Info("secure event stream created", idsLog...)
 
 	decoder := json.NewDecoder(secureEventStream)
 	encoder := json.NewEncoder(eventStream)
 	session.EventStream = eventStream
 	session.EventDecoder = decoder
 	session.EventEncoder = encoder
+	eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
 	go func() {
 		for {
 			var event Event
 			if err := session.EventDecoder.Decode(&event); err != nil {
-				if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-					ns.disconnectSession(session, false)
-					return
+				if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+					log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
 				}
-				log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
-
 				ns.disconnectSession(session, false)
 				return
 			}
-			eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
 			if ok {
 				eventHndlr(session.UserID, event)
+				log.Info("event proccessed successfully", idsLog...)
 			}
 		}
 	}()
@@ -634,11 +633,10 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 	for {
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				ns.disconnectSession(session, false)
-				return
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+				log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
 			}
-			log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session, false)
 			return
 		}
 
@@ -679,16 +677,16 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 		logCount++
 		datagram, err := session.Conn.ReceiveDatagram(ns.closeCtx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr == nil {
-				ns.disconnectSession(session, false)
-				return
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+				sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
 			}
-			sparseLog.Error(logCount, "failed to receive datagram", logger.Err(err), userIdLog, receiverIdLog)
+			ns.disconnectSession(session, false)
 			return
 		}
 		data, err := e2ee.DecipherDatagram(datagram, session.Key)
 		if err != nil {
 			log.Error("failed to decipher datagram", logger.Err(err))
+			continue
 		}
 		if len(data) < 1 {
 			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
