@@ -328,8 +328,10 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 					{
 						stream, err := s.Conn.OpenUniStreamSync(gctx)
 						if err != nil {
-							log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
-
+							if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+								log.Error("failed to open uni stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
+							}
+							ns.disconnectSession(s, false)
 							return
 						}
 
@@ -352,7 +354,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 							log.Error("failed to close secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 							return
 						}
-
+						log.Info("message sent", recIdLog, userIdLog, msgLenLog)
 					}
 				}(s)
 			default:
@@ -360,7 +362,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 
 		}
 	}
-	log.Info("message sent", sendMsgLog...)
+
 	return nil
 
 }
