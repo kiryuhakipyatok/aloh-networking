@@ -605,8 +605,9 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 	session.EventStream = eventStream
 	session.EventDecoder = decoder
 	session.EventEncoder = encoder
-	eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
+
 	go func() {
+		eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
 		for {
 			var event Event
 			if err := session.EventDecoder.Decode(&event); err != nil {
@@ -636,6 +637,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
 				log.Error("failed to accept uni stream", logger.Err(err), userIdLog, receiverIdLog)
 			}
+
 			ns.disconnectSession(session, false)
 			return
 		}
