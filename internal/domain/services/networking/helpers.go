@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -606,10 +607,19 @@ func (ns *networkingServ) initEventStream(ctx context.Context, session *models.S
 			log.Error("failed to open event stream", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
+		if _, err := eventStream.Write([]byte{0}); err != nil {
+			log.Error("failed to write handshake byte to event stream", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
+		}
 	} else {
 		eventStream, err = session.Conn.AcceptStream(ctx)
 		if err != nil {
 			log.Error("failed to accept event stream", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
+		}
+		h := make([]byte, 1)
+		if _, err := io.ReadFull(eventStream, h); err != nil {
+			log.Error("failed to read handshake byte to event stream", logger.Err(err), userIdLog, receiverIdLog)
 			return errs.NewAppError(op, err)
 		}
 	}
@@ -624,19 +634,6 @@ func (ns *networkingServ) initEventStream(ctx context.Context, session *models.S
 
 	decoder := json.NewDecoder(secureEventStream)
 	encoder := json.NewEncoder(secureEventStream)
-
-	if session.IsInitiator {
-		if err := session.EventEncoder.Encode(Event{}); err != nil {
-			log.Error("failed to encode dummy event", logger.Err(err), userIdLog, receiverIdLog)
-			return errs.NewAppError(op, err)
-		}
-	} else {
-		var d Event
-		if err := session.EventDecoder.Decode(&d); err != nil {
-			log.Error("failed to decode dummy event", logger.Err(err), userIdLog, receiverIdLog)
-			return errs.NewAppError(op, err)
-		}
-	}
 
 	session.EventStream = eventStream
 	session.EventDecoder = decoder
