@@ -495,6 +495,11 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 		return errs.NewAppError(op, err)
 	}
 
+	if err := ns.initEventStream(ctx, session); err != nil {
+		log.Error("failed to init event stream", logger.Err(err), receiverIdLog, userIdLog)
+		return errs.NewAppError(op, err)
+	}
+
 	//if !session.IsInitiator {
 	connHdlr, ok := ns.onPeerConnectedHandler.Load().(connectionHandler)
 	if ok {
@@ -503,6 +508,7 @@ func (ns *networkingServ) establishConnection(ctx context.Context, session *mode
 	//}
 
 	log.Info("e2ee connection established successfully", idsLog...)
+
 	go ns.handleConnection(session)
 	close(session.ReadyChan)
 	return nil
@@ -553,7 +559,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 		//ns.disconnectSession(session)
 		log.Info("connection handling stopped", idsLog...)
 	}()
-	ns.proccessEventStream(session)
+	go ns.proccessEventStream(session)
 	go ns.receiveDatagrams(session)
 	ns.receiveStreams(session)
 }
@@ -565,64 +571,81 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	log.Info("event stream processing...", idsLog...)
+
+	eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
+	for {
+		var event Event
+		if err := session.EventDecoder.Decode(&event); err != nil {
+			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
+				log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
+			}
+			ns.disconnectSession(session, false)
+			return
+		}
+		if ok {
+			eventHndlr(session.UserID, event)
+			log.Info("event proccessed successfully", idsLog...)
+		}
+	}
+}
+
+func (ns *networkingServ) initEventStream(ctx context.Context, session *models.Session) error {
+	op := "networkingServ.initEventStream"
+	log := ns.logger.AddOp(op)
+	userIdLog := logger.Attr("userId", ns.id)
+	receiverIdLog := logger.Attr("receiverId", session.UserID)
+	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
+	log.Info("event stream initing...", idsLog...)
 	var (
 		eventStream *quic.Stream
 		err         error
 	)
 	if session.IsInitiator {
-		eventStream, err = session.Conn.OpenStreamSync(ns.closeCtx)
+		eventStream, err = session.Conn.OpenStreamSync(ctx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
-				log.Error("failed to open control stream", logger.Err(err), userIdLog, receiverIdLog)
-			}
-			ns.disconnectSession(session, false)
-			return
+			log.Error("failed to open event stream", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
 		}
 	} else {
-		eventStream, err = session.Conn.AcceptStream(ns.closeCtx)
+		eventStream, err = session.Conn.AcceptStream(ctx)
 		if err != nil {
-			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
-				log.Error("failed to accept control stream", logger.Err(err), userIdLog, receiverIdLog)
-			}
-			ns.disconnectSession(session, false)
-			return
+			log.Error("failed to accept event stream", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
 		}
 	}
 
 	secureEventStream, err := e2ee.NewSecureStream(eventStream, session.Key)
 	if err != nil {
-		if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
-			log.Error("failed to create secure event stream", logger.Err(err), userIdLog, receiverIdLog)
-		}
-		ns.disconnectSession(session, false)
-		return
+		log.Error("failed to create secure event stream", logger.Err(err), userIdLog, receiverIdLog)
+		return errs.NewAppError(op, err)
 	}
 
 	log.Info("secure event stream created", idsLog...)
 
 	decoder := json.NewDecoder(secureEventStream)
 	encoder := json.NewEncoder(secureEventStream)
+
+	if session.IsInitiator {
+		if err := session.EventEncoder.Encode(Event{}); err != nil {
+			log.Error("failed to encode dummy event", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
+		}
+	} else {
+		var d Event
+		if err := session.EventDecoder.Decode(&d); err != nil {
+			log.Error("failed to decode dummy event", logger.Err(err), userIdLog, receiverIdLog)
+			return errs.NewAppError(op, err)
+		}
+	}
+
 	session.EventStream = eventStream
 	session.EventDecoder = decoder
 	session.EventEncoder = encoder
 
-	go func() {
-		eventHndlr, ok := ns.onEventHandler.Load().(eventHandler)
-		for {
-			var event Event
-			if err := session.EventDecoder.Decode(&event); err != nil {
-				if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
-					log.Error("failed to decode event", logger.Err(err), userIdLog, receiverIdLog)
-				}
-				ns.disconnectSession(session, false)
-				return
-			}
-			if ok {
-				eventHndlr(session.UserID, event)
-				log.Info("event proccessed successfully", idsLog...)
-			}
-		}
-	}()
+	log.Info("event stream inited successfully", idsLog...)
+
+	return nil
+
 }
 
 func (ns *networkingServ) receiveStreams(session *models.Session) {
