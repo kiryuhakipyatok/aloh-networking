@@ -76,7 +76,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			}
 		}
 		if session.Agent != nil {
-			if err := session.Agent.Close(); err != nil {
+			if err := session.Agent.GracefulClose(); err != nil {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
@@ -111,13 +111,16 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 		}
 	}
 	if session.Agent != nil {
-		if err := session.Agent.Close(); err != nil {
+		if err := session.Agent.GracefulClose(); err != nil {
 			log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 		}
 	}
 
-	log.Info("session reseted", userIdLog)
+	if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
+		log.Error("failed to delete session", logger.Err(err), userIdLog)
+	}
 
+	log.Info("session reseted", userIdLog)
 }
 
 func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
@@ -300,9 +303,10 @@ func (ns *networkingServ) receiveConnects() error {
 				if session.Conn != nil {
 					log.Info("reconnecting", senderIdLog)
 					ns.resetSession(session)
-
+					createCtx, cancel := context.WithTimeout(ns.closeCtx, time.Second*5)
+					defer cancel()
 					var err error
-					session, err = ns.createAndEstablish(ctx, senderId, NOT_INITIATOR)
+					session, err = ns.createAndEstablish(createCtx, senderId, NOT_INITIATOR)
 					if err != nil {
 						log.Error("failed to recreate session", logger.Err(err), senderIdLog)
 						return
