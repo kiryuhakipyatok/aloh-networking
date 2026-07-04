@@ -6,7 +6,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704125323-80c2c3c4258c
+	github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704150052-a6c6c1f36eee
 	github.com/pion/ice/v2 v2.3.38
 	github.com/pion/stun v0.6.1
 	github.com/quic-go/quic-go v0.59.0

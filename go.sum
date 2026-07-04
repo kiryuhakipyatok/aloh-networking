@@ -23,6 +23,8 @@ github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704124837-0bc18b1de052 h1
 github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704124837-0bc18b1de052/go.mod h1:a1GRmykZb6inOZjTc+vX0260myaPxtFbCe6liMVitCk=
 github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704125323-80c2c3c4258c h1:Mz3Bc0WMgM78R+DrCiwXXNMKwZbPG0uQA6AZks80vHo=
 github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704125323-80c2c3c4258c/go.mod h1:a1GRmykZb6inOZjTc+vX0260myaPxtFbCe6liMVitCk=
+github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704150052-a6c6c1f36eee h1:9iHc1bxU7rEItEHoN7e/qFXSWjuOut30iT0mjhOOfMQ=
+github.com/kiryuhakipyatok/aloh-signalling v0.0.0-20260704150052-a6c6c1f36eee/go.mod h1:a1GRmykZb6inOZjTc+vX0260myaPxtFbCe6liMVitCk=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
