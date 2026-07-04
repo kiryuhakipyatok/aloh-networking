@@ -214,8 +214,8 @@ func (sc *signalingClient) GetFriendsOnline(ctx context.Context, ids []string) (
 		log = sc.logger.AddOp(op)
 	)
 	//log.Info("fetching sessions by id from signaling...")
-	friendsIds := FriendsIds{
-		Ids: ids,
+	friendsIds := FetchFriendsOnline{
+		FriendsIds: ids,
 	}
 	sendData, err := json.Marshal(friendsIds)
 	if err != nil {

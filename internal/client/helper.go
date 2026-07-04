@@ -135,7 +135,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
-	respCode := *responseMsg.Code
+	respCode := responseMsg.Code
 	if respCode != PAYLOAD_SUCCESS {
 		log.Error("response code is not payload success", idLog, logger.Attr("respCode", respCode))
 		return codeToError(op, respCode)
@@ -359,8 +359,8 @@ func (sc *signalingClient) checkResp(ctx context.Context, cc checkConf) ([]byte,
 		if !ok {
 			return nil, errs.ErrOfflineBase
 		}
-		if *resp.Code != cc.typee {
-			return nil, codeToError(cc.op, *resp.Code)
+		if resp.Code != cc.typee {
+			return nil, codeToError(cc.op, resp.Code)
 		}
 		return resp.Payload, nil
 	case <-ctx.Done():
