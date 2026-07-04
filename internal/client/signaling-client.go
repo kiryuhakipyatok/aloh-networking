@@ -160,6 +160,7 @@ func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string)
 
 	if err := sc.sendPayload(ctx, ids, sdp); err != nil {
 		log.Error("failed to send payload", logger.Err(err))
+		return errs.NewAppError(op, err)
 	}
 	//log.Info("sdp created successfully")
 	return nil

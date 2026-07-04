@@ -35,7 +35,7 @@ const (
 type (
 	Message            = alohsignalling.Message
 	UserId             = alohsignalling.UserId
-	SendPayloadMessage = alohsignalling.SendPayloadMessage
+	//SendPayloadMessage = alohsignalling.SendPayloadMessage
 	ReplyMessage       = alohsignalling.ReplyMessage
 	ResponseMessage    = alohsignalling.ResponseMessage
 	CredsMessage       = alohsignalling.CredsMessage
@@ -56,10 +56,10 @@ type (
 // 	Ids []string `json:"friendsIds" validate:"required,min=1"`
 // }
 
-// type SendPayloadMessage struct {
-// 	RecevierIDs []string `json:"ids" validate:"required,min=1"`
-// 	Payload     []byte   `json:"payload" validate:"required"`
-// }
+type SendPayloadMessage struct {
+	RecevierIDs []string `json:"ids" validate:"required,min=1"`
+	Payload     []byte   `json:"payload" validate:"required"`
+}
 
 // type ReplyMessage struct {
 // 	Sender  string `json:"sender-id" validate:"required,min=1"`
