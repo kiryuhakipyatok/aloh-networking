@@ -1,13 +1,15 @@
 package alohnetwork
 
-func (n *Netwoking) Connect(id string) error {
+import "github.com/google/uuid"
+
+func (n *Netwoking) Connect(id uuid.UUID) error {
 	if err := n.Handler.Connect(id); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (n *Netwoking) ConnectById(id string) error {
+func (n *Netwoking) ConnectById(id uuid.UUID) error {
 	if err := n.Handler.ConnectById(id); err != nil {
 		return err
 	}
@@ -21,7 +23,7 @@ func (n *Netwoking) Disconnect() error {
 	return nil
 }
 
-func (n *Netwoking) DisconnectById(id string) error {
+func (n *Netwoking) DisconnectById(id uuid.UUID) error {
 	if err := n.Handler.DisconnectById(id); err != nil {
 		return err
 	}

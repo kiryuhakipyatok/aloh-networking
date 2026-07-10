@@ -1,6 +1,8 @@
 package alohnetwork
 
-func (n *Netwoking) FetchOnline() ([]string, error) {
+import "github.com/google/uuid"
+
+func (n *Netwoking) FetchOnline() ([]uuid.UUID, error) {
 	online, err := n.Handler.FetchOnline()
 	if err != nil {
 		return nil, err
@@ -8,7 +10,7 @@ func (n *Netwoking) FetchOnline() ([]string, error) {
 	return online, nil
 }
 
-func (n *Netwoking) FetchSessions(id string) ([]string, error) {
+func (n *Netwoking) FetchSessions(id uuid.UUID) ([]uuid.UUID, error) {
 	sessions, err := n.Handler.FetchSessionById(id)
 	if err != nil {
 		return nil, err
@@ -16,7 +18,7 @@ func (n *Netwoking) FetchSessions(id string) ([]string, error) {
 	return sessions, nil
 }
 
-func (n *Netwoking) FetchFriends(ids []string) (map[string][]string, error) {
+func (n *Netwoking) FetchFriends(ids []uuid.UUID) (map[uuid.UUID][]string, error) {
 	friends, err := n.Handler.FetchOnlineFriends(ids)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
+	"github.com/google/uuid"
 
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/e2ee"
@@ -25,7 +26,7 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) processData(id string, data []byte) {
+func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	msgType := data[0]
@@ -123,7 +124,7 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 	log.Info("session reseted", userIdLog)
 }
 
-func (ns *networkingServ) createSession(ctx context.Context, rid string, isInitiator bool) (*models.Session, error) {
+func (ns *networkingServ) createSession(ctx context.Context, rid uuid.UUID, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createSession"
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", ns.id)
@@ -181,7 +182,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 	creds := fmt.Appendf(nil, "%s %s", localFrag, localPwd)
 	sdp := utils.SetFirstByte(CREDS, creds)
 	log.Debug("sdp (credentials) creating", ridLog, userIdLog)
-	if err := ns.signalingClient.NewSDP(ctx, sdp, []string{session.UserID}); err != nil {
+	if err := ns.signalingClient.NewSDP(ctx, sdp, []uuid.UUID{session.UserID}); err != nil {
 		log.Error("failed to create new sdp (credentials)", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
@@ -196,7 +197,7 @@ func (ns *networkingServ) createSession(ctx context.Context, rid string, isIniti
 			candidate := []byte(c.Marshal())
 			sdp := utils.SetFirstByte(CANDIDATE, candidate)
 			log.Debug("sdp (candidate) creating", ridLog, userIdLog)
-			if err := ns.signalingClient.NewSDP(sdpCtx, sdp, []string{rid}); err != nil {
+			if err := ns.signalingClient.NewSDP(sdpCtx, sdp, []uuid.UUID{rid}); err != nil {
 				log.Error("failed to create new sdp (candidate)", logger.Err(err), ridLog, userIdLog)
 			}
 		}(c)
@@ -277,7 +278,7 @@ func (ns *networkingServ) receiveConnects() error {
 			senderId := sdp.Sender
 			senderIdLog := logger.Attr("senderId", senderId)
 			log.Debug("received new sdp", senderIdLog)
-			v, err, _ := ns.sdpsGroup.Do(sdp.Sender, func() (any, error) {
+			v, err, _ := ns.sdpsGroup.Do(sdp.Sender.String(), func() (any, error) {
 				return ns.getSession(ctx, senderId)
 			})
 			if err != nil {
@@ -344,7 +345,7 @@ func (ns *networkingServ) receiveConnects() error {
 
 }
 
-func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isInitiator bool) (*models.Session, error) {
+func (ns *networkingServ) createAndEstablish(ctx context.Context, id uuid.UUID, isInitiator bool) (*models.Session, error) {
 	op := "networkingServ.createAndEstablish"
 	log := ns.logger.AddOp(op)
 	userLog := logger.Attr("userId", id)
@@ -368,7 +369,7 @@ func (ns *networkingServ) createAndEstablish(ctx context.Context, id string, isI
 	return session, nil
 }
 
-func (ns *networkingServ) getSession(ctx context.Context, id string) (*models.Session, error) {
+func (ns *networkingServ) getSession(ctx context.Context, id uuid.UUID) (*models.Session, error) {
 	op := "networkingServ.getSession"
 	log := ns.logger.AddOp(op)
 	userLog := logger.Attr("userId", id)

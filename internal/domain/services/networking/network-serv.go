@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
 
@@ -45,10 +46,10 @@ const (
 )
 
 type NetworkingServ interface {
-	Connect(ctx context.Context, rid string) error
-	ConnectById(ctx context.Context, rid string) error
+	Connect(ctx context.Context, rid uuid.UUID) error
+	ConnectById(ctx context.Context, rid uuid.UUID) error
 	Disconnect() error
-	DisconnectFromId(ctx context.Context, sessionId string) error
+	DisconnectFromId(ctx context.Context, sessionId uuid.UUID) error
 	SendInEventStream(ctx context.Context, e Event) error
 	SendInStream(ctx context.Context, data []byte) error
 	SendDatagram(ctx context.Context, data []byte) error
@@ -58,13 +59,13 @@ type NetworkingServ interface {
 	SavePeerConnectedHandler(h connectionHandler)
 	SavePeerDisconnectedHandler(h connectionHandler)
 	SaveEventHandler(h eventHandler)
-	FetchOnline(ctx context.Context) ([]string, error)
-	FetchSessionsById(ctx context.Context, id string) ([]string, error)
-	FetchOnlineFriends(ctx context.Context, friends []string) (map[string][]string, error)
+	FetchOnline(ctx context.Context) ([]uuid.UUID, error)
+	FetchSessionsById(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error)
+	FetchOnlineFriends(ctx context.Context, friends []uuid.UUID) (map[uuid.UUID][]string, error)
 }
 
 type networkingServ struct {
-	id                   string
+	id                   uuid.UUID
 	signalingClient      client.SignalingClient
 	sessionRepo          repository.SessionRepository
 	receiveSDPs          chan client.ReplyMessage
@@ -79,7 +80,7 @@ type networkingServ struct {
 }
 
 type NewNetworkingSetup struct {
-	Id          string
+	Id          uuid.UUID
 	SC          client.SignalingClient
 	Cfg         config.Networking
 	L           *logger.Logger
@@ -114,7 +115,7 @@ func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) Networking
 	return ns
 }
 
-func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
+func (ns *networkingServ) Connect(ctx context.Context, rid uuid.UUID) error {
 	op := "networkingServ.Connect"
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
@@ -166,7 +167,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 		return errs.NewAppError(op, err)
 	}
 
-	var resultReceiversSessions []string
+	var resultReceiversSessions []uuid.UUID
 	err = json.Unmarshal(receiversSessions, &resultReceiversSessions)
 	if err != nil {
 		return errs.NewAppError(op, err)
@@ -195,7 +196,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid string) error {
 	return nil
 }
 
-func (ns *networkingServ) ConnectById(ctx context.Context, rid string) error {
+func (ns *networkingServ) ConnectById(ctx context.Context, rid uuid.UUID) error {
 	op := "networkingServ.ConnectById"
 	log := ns.logger.AddOp(op)
 
@@ -250,7 +251,7 @@ func (ns *networkingServ) Disconnect() error {
 	return nil
 }
 
-func (ns *networkingServ) DisconnectFromId(ctx context.Context, sessionId string) error {
+func (ns *networkingServ) DisconnectFromId(ctx context.Context, sessionId uuid.UUID) error {
 	op := "networkingServ.DisconnectFrom"
 	log := ns.logger.AddOp(op)
 	sessionIdLog := logger.Attr("sessionId", sessionId)
@@ -413,7 +414,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	return nil
 }
 
-func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
+func (ns *networkingServ) FetchOnline(ctx context.Context) ([]uuid.UUID, error) {
 	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchOnline"
 	log := ns.logger.AddOp(op)
@@ -424,7 +425,7 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 		log.Error("failed to fetch online", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	var onlineIds []string
+	var onlineIds []uuid.UUID
 	if err := json.Unmarshal(onlineIdsByte, &onlineIds); err != nil {
 		log.Error("failed to unmarshal online", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
@@ -434,7 +435,7 @@ func (ns *networkingServ) FetchOnline(ctx context.Context) ([]string, error) {
 
 }
 
-func (ns *networkingServ) FetchOnlineFriends(ctx context.Context, friends []string) (map[string][]string, error) {
+func (ns *networkingServ) FetchOnlineFriends(ctx context.Context, friends []uuid.UUID) (map[uuid.UUID][]string, error) {
 	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchOnlineFriends"
 	log := ns.logger.AddOp(op)
@@ -445,7 +446,7 @@ func (ns *networkingServ) FetchOnlineFriends(ctx context.Context, friends []stri
 		log.Error("failed to fetch online friends", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	var onlineFriends map[string][]string
+	var onlineFriends map[uuid.UUID][]string
 	if err := json.Unmarshal(onlineFriendsByte, &onlineFriends); err != nil {
 		log.Error("failed to unmarshal online friends", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
@@ -455,7 +456,7 @@ func (ns *networkingServ) FetchOnlineFriends(ctx context.Context, friends []stri
 
 }
 
-func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]string, error) {
+func (ns *networkingServ) FetchSessionsById(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
 	ns.fetchLogCount.Add(1)
 	op := "networkingServ.FetchSessions"
 	log := ns.logger.AddOp(op)
@@ -466,7 +467,7 @@ func (ns *networkingServ) FetchSessionsById(ctx context.Context, id string) ([]s
 		log.Error("failed to fetch sessions by id", logger.Err(err))
 		return nil, errs.NewAppError(op, err)
 	}
-	var sessions []string
+	var sessions []uuid.UUID
 	if err := json.Unmarshal(sessionsByte, &sessions); err != nil {
 		log.Error("failed to unmarshal sessions by id", logger.Err(err))
 		return nil, errs.NewAppError(op, err)

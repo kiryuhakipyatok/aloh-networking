@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/client"
@@ -30,7 +31,7 @@ func loadEnv() error {
 	return nil
 }
 
-func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
+func Init(userID uuid.UUID, cfg config.Config) (networking.NetworkingServ, context.CancelFunc, error) {
 	if err := loadEnv(); err != nil {
 		panic(err)
 	}
@@ -63,7 +64,7 @@ func Init(userID string, cfg config.Config) (networking.NetworkingServ, context.
 
 	networkingService := networking.NewNetworkingServ(ctx, networkingSetup)
 
-	log.Info("library initialized for user: " + userID)
+	log.Info("library initialized for user: " + userID.String())
 
 	return networkingService, func() {
 		log.Info("stopping library...")

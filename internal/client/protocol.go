@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	alohsignalling "github.com/kiryuhakipyatok/aloh-signalling"
 )
@@ -33,8 +34,8 @@ const (
 )
 
 type (
-	Message            = alohsignalling.Message
-	UserId             = alohsignalling.UserId
+	Message = alohsignalling.Message
+	UserId  = alohsignalling.UserId
 	//SendPayloadMessage = alohsignalling.SendPayloadMessage
 	//ReplyMessage       = alohsignalling.ReplyMessage
 	ResponseMessage    = alohsignalling.ResponseMessage
@@ -57,13 +58,13 @@ type (
 // }
 
 type SendPayloadMessage struct {
-	RecevierIDs []string `json:"ids" validate:"required,min=1"`
-	Payload     []byte   `json:"payload" validate:"required"`
+	RecevierIDs []uuid.UUID `json:"ids" validate:"required,min=1"`
+	Payload     []byte      `json:"payload" validate:"required"`
 }
 
 type ReplyMessage struct {
-	Sender  string `json:"sender-id" validate:"required,min=1"`
-	Payload []byte `json:"payload" validate:"required"`
+	Sender  uuid.UUID `json:"sender-id" validate:"required,min=1"`
+	Payload []byte    `json:"payload" validate:"required"`
 }
 
 // type ResponseMessage struct {
@@ -116,7 +117,7 @@ func ToReplyMessage(data []byte) (*ReplyMessage, error) {
 	return replyMsg, nil
 }
 
-func NewReplyMessage(senderId string, pyaload json.RawMessage) ([]byte, error) {
+func NewReplyMessage(senderId uuid.UUID, pyaload json.RawMessage) ([]byte, error) {
 	op := "protocols.NewReplyMessage"
 	rm := ReplyMessage{
 		Sender:  senderId,

@@ -1,10 +1,14 @@
 package networking
 
-import "sync/atomic"
+import (
+	"sync/atomic"
 
-type dataHandler func(id string, data []byte)
-type connectionHandler func(id string)
-type eventHandler func(id string, data Event)
+	"github.com/google/uuid"
+)
+
+type dataHandler func(id uuid.UUID, data []byte)
+type connectionHandler func(id uuid.UUID)
+type eventHandler func(id uuid.UUID, data Event)
 
 type handlers struct {
 	onChatHandler             atomic.Value

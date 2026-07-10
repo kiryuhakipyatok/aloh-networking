@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
@@ -19,12 +20,12 @@ import (
 
 type SignalingClient interface {
 	CloseConnection(code uint, desc string) error
-	NewSDP(ctx context.Context, sdp []byte, ids []string) error
+	NewSDP(ctx context.Context, sdp []byte, ids []uuid.UUID) error
 	GetOnline(ctx context.Context) ([]byte, error)
-	GetSessionsById(ctx context.Context, id string) ([]byte, error)
-	GetFriendsOnline(ctx context.Context, ids []string) ([]byte, error)
-	AddInSession(ctx context.Context, id string) error
-	DeleteFromSession(ctx context.Context, id string) error
+	GetSessionsById(ctx context.Context, id uuid.UUID) ([]byte, error)
+	GetFriendsOnline(ctx context.Context, ids []uuid.UUID) ([]byte, error)
+	AddInSession(ctx context.Context, id uuid.UUID) error
+	DeleteFromSession(ctx context.Context, id uuid.UUID) error
 	GetCreds(ctx context.Context) (string, string, error)
 	IsOnline() bool
 }
@@ -50,7 +51,8 @@ type connConf struct {
 	addr     string
 }
 
-func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) (SignalingClient, error) {
+func NewSignalingClient(ctx context.Context, l *logger.Logger, id uuid.UUID,
+	sendMsgs chan Message, receiveSDPs chan ReplyMessage, cfg config.Signaling) (SignalingClient, error) {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         cfg.NextProtos,
@@ -97,7 +99,7 @@ func NewSignalingClient(ctx context.Context, l *logger.Logger, id string, sendMs
 	return sc, nil
 }
 
-func (sc *signalingClient) Run(ctx context.Context, id string, connConf connConf) {
+func (sc *signalingClient) Run(ctx context.Context, id uuid.UUID, connConf connConf) {
 	op := "signalingClient.Run"
 	log := sc.logger.AddOp(op)
 	b := backoff.NewExponentialBackOff()
@@ -151,7 +153,7 @@ func (sc *signalingClient) CloseConnection(code uint, desc string) error {
 	return nil
 }
 
-func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []string) error {
+func (sc *signalingClient) NewSDP(ctx context.Context, sdp []byte, ids []uuid.UUID) error {
 	var (
 		op  = "signalingClient.NewSDP"
 		log = sc.logger.AddOp(op)
@@ -184,7 +186,7 @@ func (sc *signalingClient) GetOnline(ctx context.Context) ([]byte, error) {
 	return online, nil
 }
 
-func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]byte, error) {
+func (sc *signalingClient) GetSessionsById(ctx context.Context, id uuid.UUID) ([]byte, error) {
 
 	var (
 		op  = "signalingClient.GetSessionsById"
@@ -209,7 +211,7 @@ func (sc *signalingClient) GetSessionsById(ctx context.Context, id string) ([]by
 	return sessions, nil
 }
 
-func (sc *signalingClient) GetFriendsOnline(ctx context.Context, ids []string) ([]byte, error) {
+func (sc *signalingClient) GetFriendsOnline(ctx context.Context, ids []uuid.UUID) ([]byte, error) {
 	var (
 		op  = "signalingClient.GetFriendsOnline"
 		log = sc.logger.AddOp(op)
@@ -233,7 +235,7 @@ func (sc *signalingClient) GetFriendsOnline(ctx context.Context, ids []string) (
 	return onlineFriends, nil
 }
 
-func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
+func (sc *signalingClient) AddInSession(ctx context.Context, id uuid.UUID) error {
 
 	var (
 		op  = "signalingClient.AddInSession"
@@ -256,7 +258,7 @@ func (sc *signalingClient) AddInSession(ctx context.Context, id string) error {
 	return nil
 }
 
-func (sc *signalingClient) DeleteFromSession(ctx context.Context, id string) error {
+func (sc *signalingClient) DeleteFromSession(ctx context.Context, id uuid.UUID) error {
 	var (
 		op  = "signalingClient.DeleteFromSession"
 		log = sc.logger.AddOp(op)

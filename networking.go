@@ -3,6 +3,7 @@ package alohnetwork
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/app"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/handlers"
@@ -14,7 +15,7 @@ type Netwoking struct {
 	Cancel  context.CancelFunc
 }
 
-func NewNetworking(userId string, cfg config.Config) (*Netwoking, error) {
+func NewNetworking(userId uuid.UUID, cfg config.Config) (*Netwoking, error) {
 	service, cancel, err := app.Init(userId, cfg)
 	if err != nil {
 		return nil, errs.ProcessError(err)
