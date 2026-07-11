@@ -15,6 +15,7 @@ var (
 	AppClosingBase             = errors.New("app closing")
 	ErrInvalidType             = errors.New("invalid type")
 	ErrOfflineBase             = errors.New("offline")
+	ErrConnToHimselfBase       = errors.New("cannot connect to himself")
 )
 
 type AppError struct {
@@ -67,4 +68,8 @@ func AppClosing(op string) AppError {
 
 func ErrOffline(op string) AppError {
 	return AppError{Op: op, Err: ErrOfflineBase}
+}
+
+func ErrConnToHimself(op string) AppError {
+	return AppError{Op: op, Err: ErrConnToHimselfBase}
 }

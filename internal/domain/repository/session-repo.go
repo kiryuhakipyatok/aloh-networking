@@ -5,15 +5,16 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/models"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 )
 
 type SessionRepository interface {
-	Add(ctx context.Context, id string, session *models.Session) error
-	Delete(ctx context.Context, id string, session *models.Session) error
+	Add(ctx context.Context, id uuid.UUID, session *models.Session) error
+	Delete(ctx context.Context, id uuid.UUID, session *models.Session) error
 	Fetch(ctx context.Context) ([]*models.Session, error)
-	Get(ctx context.Context, id string) (*models.Session, error)
+	Get(ctx context.Context, id uuid.UUID) (*models.Session, error)
 	Clear(ctx context.Context) error
 }
 
@@ -25,7 +26,7 @@ func NewSessionRepository() SessionRepository {
 	return &sessionRepository{}
 }
 
-func (ag *sessionRepository) Add(ctx context.Context, id string, session *models.Session) error {
+func (ag *sessionRepository) Add(ctx context.Context, id uuid.UUID, session *models.Session) error {
 	op := "sessionRepository.Add"
 	select {
 	case <-ctx.Done():
@@ -38,7 +39,7 @@ func (ag *sessionRepository) Add(ctx context.Context, id string, session *models
 	}
 }
 
-func (ag *sessionRepository) Delete(ctx context.Context, id string, session *models.Session) error {
+func (ag *sessionRepository) Delete(ctx context.Context, id uuid.UUID, session *models.Session) error {
 	op := "sessionRepository.Delete"
 	select {
 	case <-ctx.Done():
@@ -51,7 +52,7 @@ func (ag *sessionRepository) Delete(ctx context.Context, id string, session *mod
 	}
 }
 
-func (ag *sessionRepository) Get(ctx context.Context, id string) (*models.Session, error) {
+func (ag *sessionRepository) Get(ctx context.Context, id uuid.UUID) (*models.Session, error) {
 	op := "sessionRepository.Get"
 	select {
 	case <-ctx.Done():

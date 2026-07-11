@@ -1,19 +1,20 @@
 services:
   networking-bot-111:
-    image: aloh-networking-image
+    build: .
+    #image: aloh-networking-image
     container_name: networking-bot-111
-    command: ["-id=111"]
+    command: ["-id=ed6f7b67-be1c-4dbb-80e3-f42a2ed7da77"]
     stdin_open: true
     tty: true
   networking-bot-222:
     image: aloh-networking-image
     container_name: networking-bot-222
-    command: ["-id=222"]
+    command: ["-id=34a0fff1-5b66-4122-a0d2-d7e8981539b0"]
     stdin_open: true
     tty: true
   networking-bot-333:
     image: aloh-networking-image
     container_name: networking-bot-333
-    command: ["-id=333"]
+    command: ["-id=22dafd75-c7c6-49e1-8e74-e6ef4c6863a5"]
     stdin_open: true
     tty: true

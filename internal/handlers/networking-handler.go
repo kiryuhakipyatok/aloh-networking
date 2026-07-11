@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/kiryuhakipyatok/aloh-networking/config"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/domain/services/networking"
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
@@ -38,16 +40,16 @@ func (nh *NetworkingHandler) Start() {
 		}
 		m = strings.TrimSpace(m)
 		switch m {
-		case "connect":
-			m, err := reader.ReadString('\n')
-			if err != nil && !errors.Is(err, io.EOF) {
-				fmt.Println(err.Error())
-				break
-			}
-			m = strings.TrimSpace(m)
-			if err := nh.Connect(m); err != nil {
-				fmt.Println(err.Error())
-			}
+		// case "connect":
+		// 	m, err := reader.ReadString('\n')
+		// 	if err != nil && !errors.Is(err, io.EOF) {
+		// 		fmt.Println(err.Error())
+		// 		break
+		// 	}
+		// 	m = strings.TrimSpace(m)
+		// 	if err := nh.Connect(m); err != nil {
+		// 		fmt.Println(err.Error())
+		// 	}
 		case "sendMsg":
 			m, err := reader.ReadString('\n')
 			if err != nil && !errors.Is(err, io.EOF) {
@@ -90,26 +92,13 @@ func (nh *NetworkingHandler) Start() {
 			} else {
 				fmt.Println(online)
 			}
-		case "sessionsId":
-			m, err := reader.ReadString('\n')
-			if err != nil && !errors.Is(err, io.EOF) {
-				fmt.Println(err.Error())
-				break
-			}
-			m = strings.TrimSpace(m)
-			sessions, err := nh.FetchSessionById(m)
-			if err != nil {
-				fmt.Println(err.Error())
-			} else {
-				fmt.Println(sessions)
-			}
 		default:
 			fmt.Println("sosi")
 		}
 	}
 }
 
-func (nh *NetworkingHandler) Connect(receiverId string) error {
+func (nh *NetworkingHandler) Connect(receiverId uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
 	defer cancel()
 	if err := nh.NetworkingServ.Connect(ctx, receiverId); err != nil {
@@ -118,8 +107,35 @@ func (nh *NetworkingHandler) Connect(receiverId string) error {
 	return nil
 }
 
+func (nh *NetworkingHandler) ConnectById(receiverId uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
+	defer cancel()
+	if err := nh.NetworkingServ.ConnectById(ctx, receiverId); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
 func (nh *NetworkingHandler) Disconnect() error {
 	if err := nh.NetworkingServ.Disconnect(); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
+func (nh *NetworkingHandler) DisconnectById(id uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := nh.NetworkingServ.DisconnectFromId(ctx, id); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
+func (nh *NetworkingHandler) SendEvent(e networking.Event) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendChatTimeout)
+	defer cancel()
+	if err := nh.NetworkingServ.SendInEventStream(ctx, e); err != nil {
 		return errs.ProcessError(err)
 	}
 	return nil
@@ -155,27 +171,31 @@ func (nh *NetworkingHandler) SendVideo(data []byte) error {
 	return nil
 }
 
-func (nh *NetworkingHandler) OnChat(f func(id string, data []byte)) {
+func (nh *NetworkingHandler) OnChat(f func(id uuid.UUID, data []byte)) {
 	nh.NetworkingServ.SaveChatHandler(f)
 }
 
-func (nh *NetworkingHandler) OnVideo(f func(id string, data []byte)) {
+func (nh *NetworkingHandler) OnVideo(f func(id uuid.UUID, data []byte)) {
 	nh.NetworkingServ.SaveVideoHandler(f)
 }
 
-func (nh *NetworkingHandler) OnVoice(f func(id string, data []byte)) {
+func (nh *NetworkingHandler) OnVoice(f func(id uuid.UUID, data []byte)) {
 	nh.NetworkingServ.SaveVoiceHandler(f)
 }
 
-func (nh *NetworkingHandler) OnPeerConnected(f func(id string)) {
+func (nh *NetworkingHandler) OnPeerConnected(f func(id uuid.UUID)) {
 	nh.NetworkingServ.SavePeerConnectedHandler(f)
 }
 
-func (nh *NetworkingHandler) OnPeerDisconnected(f func(id string)) {
+func (nh *NetworkingHandler) OnPeerDisconnected(f func(id uuid.UUID)) {
 	nh.NetworkingServ.SavePeerDisconnectedHandler(f)
 }
 
-func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
+func (nh *NetworkingHandler) OnEvent(f func(id uuid.UUID, e networking.Event)) {
+	nh.NetworkingServ.SaveEventHandler(f)
+}
+
+func (nh *NetworkingHandler) FetchOnline() ([]uuid.UUID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
 	defer cancel()
 	online, err := nh.NetworkingServ.FetchOnline(ctx)
@@ -185,7 +205,7 @@ func (nh *NetworkingHandler) FetchOnline() ([]string, error) {
 	return online, nil
 }
 
-func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
+func (nh *NetworkingHandler) FetchSessionById(id uuid.UUID) ([]uuid.UUID, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
 	defer cancel()
 	sessions, err := nh.NetworkingServ.FetchSessionsById(ctx, id)
@@ -195,7 +215,7 @@ func (nh *NetworkingHandler) FetchSessionById(id string) ([]string, error) {
 	return sessions, nil
 }
 
-func (nh *NetworkingHandler) FetchOnlineFriends(ids []string) (map[string][]string, error) {
+func (nh *NetworkingHandler) FetchOnlineFriends(ids []uuid.UUID) (map[uuid.UUID][]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.FetchOnlineTimeout)
 	defer cancel()
 	friends, err := nh.NetworkingServ.FetchOnlineFriends(ctx, ids)
@@ -204,4 +224,3 @@ func (nh *NetworkingHandler) FetchOnlineFriends(ids []string) (map[string][]stri
 	}
 	return friends, nil
 }
-

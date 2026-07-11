@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *backoff.ExponentialBackOff, cc connConf) error {
+func (sc *signalingClient) serveConnection(ctx context.Context, id uuid.UUID, b *backoff.ExponentialBackOff, cc connConf) error {
 	op := "signalingClient.Run"
 	log := sc.logger.AddOp(op)
 	log.Info("serving connection")
@@ -92,7 +92,7 @@ func (sc *signalingClient) serveConnection(ctx context.Context, id string, b *ba
 	return ferr
 }
 
-func (sc *signalingClient) registerConnect(ctx context.Context, id string) error {
+func (sc *signalingClient) registerConnect(ctx context.Context, id uuid.UUID) error {
 	var (
 		op    = "signalingClient.registerConnect"
 		log   = sc.logger.AddOp(op)
@@ -120,8 +120,9 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to marshal register message", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
+	msgId := uuid.New()
 	msg := Message{
-		Id:   uuid.NewString(),
+		Id:   msgId,
 		Type: new(uint8(REG_TYPE)),
 		Data: json.RawMessage(dataReg),
 	}
@@ -135,7 +136,7 @@ func (sc *signalingClient) registerConnect(ctx context.Context, id string) error
 		log.Error("failed to decode response message from signaling", logger.Err(err), idLog)
 		return errs.NewAppError(op, err)
 	}
-	respCode := *responseMsg.Code
+	respCode := responseMsg.Code
 	if respCode != PAYLOAD_SUCCESS {
 		log.Error("response code is not payload success", idLog, logger.Attr("respCode", respCode))
 		return codeToError(op, respCode)
@@ -259,7 +260,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 	if !sc.isOnline.Load() {
 		return nil, errs.ErrOfflineBase
 	}
-	msgId := uuid.NewString()
+	msgId := uuid.New()
 	respChan := make(chan ResponseMessage, 1)
 	sc.pendingResponses.Store(msgId, respChan)
 	defer sc.pendingResponses.Delete(msgId)
@@ -275,7 +276,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 	return payload, nil
 }
 
-func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data []byte) error {
+func (sc *signalingClient) sendPayload(ctx context.Context, ids []uuid.UUID, data []byte) error {
 	op := "signalingClient.sendPayload"
 	if !sc.isOnline.Load() {
 		return errs.ErrOfflineBase
@@ -288,7 +289,7 @@ func (sc *signalingClient) sendPayload(ctx context.Context, ids []string, data [
 	if err != nil {
 		return errs.NewAppError(op, err)
 	}
-	msgId := uuid.NewString()
+	msgId := uuid.New()
 	respChan := make(chan ResponseMessage, 1)
 	sc.pendingResponses.Store(msgId, respChan)
 	defer sc.pendingResponses.Delete(msgId)
@@ -315,7 +316,7 @@ func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data 
 	if !sc.isOnline.Load() {
 		return errs.ErrOfflineBase
 	}
-	msgId := uuid.NewString()
+	msgId := uuid.New()
 	respChan := make(chan ResponseMessage, 1)
 	sc.pendingResponses.Store(msgId, respChan)
 	defer sc.pendingResponses.Delete(msgId)
@@ -359,8 +360,8 @@ func (sc *signalingClient) checkResp(ctx context.Context, cc checkConf) ([]byte,
 		if !ok {
 			return nil, errs.ErrOfflineBase
 		}
-		if *resp.Code != cc.typee {
-			return nil, codeToError(cc.op, *resp.Code)
+		if resp.Code != cc.typee {
+			return nil, codeToError(cc.op, resp.Code)
 		}
 		return resp.Payload, nil
 	case <-ctx.Done():

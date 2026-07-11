@@ -3,19 +3,21 @@ package client
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
+	alohsignalling "github.com/kiryuhakipyatok/aloh-signalling"
 )
 
 const (
-	REG_TYPE = iota
-	STREAM_TYPE
-	DATAGRAM_TYPE
-	DISCONN_TYPE
-	GET_ONLINE_TYPE
-	ADD_IN_SESSION
-	GET_SESSIONS_BY_ID
-	DELETE_FROM_SESSION
-	GET_ONLINE_FRIENDS
+	REG_TYPE            = alohsignalling.REG_TYPE
+	STREAM_TYPE         = alohsignalling.STREAM_TYPE
+	DATAGRAM_TYPE       = alohsignalling.DATAGRAM_TYPE
+	DISCONN_TYPE        = alohsignalling.DISCONN_TYPE
+	GET_ONLINE_TYPE     = alohsignalling.GET_ONLINE_TYPE
+	ADD_IN_SESSION      = alohsignalling.ADD_IN_SESSION
+	GET_SESSIONS_BY_ID  = alohsignalling.GET_SESSIONS_BY_ID
+	DELETE_FROM_SESSION = alohsignalling.DELETE_FROM_SESSION
+	GET_ONLINE_FRIENDS  = alohsignalling.GET_ONLINE_FRIENDS
 )
 
 const (
@@ -31,40 +33,50 @@ const (
 	INTERNAL_ERROR
 )
 
-type Message struct {
-	Id   string          `json:"id" validate:"required,min=1"`
-	Type *uint8          `json:"type" validate:"required"`
-	Data json.RawMessage `json:"data" validate:"required"`
-}
+type (
+	Message = alohsignalling.Message
+	UserId  = alohsignalling.UserId
+	SendPayloadMessage = alohsignalling.SendPayloadMessage
+	ReplyMessage       = alohsignalling.ReplyMessage
+	ResponseMessage    = alohsignalling.ResponseMessage
+	CredsMessage       = alohsignalling.CredsMessage
+	FetchFriendsOnline = alohsignalling.FetchFriendsOnline
+)
 
-type UserId struct {
-	ID string `json:"id" validate:"required,min=1"`
-}
+// type Message struct {
+// 	Id   string          `json:"id" validate:"required,min=1"`
+// 	Type *uint8          `json:"type" validate:"required"`
+// 	Data json.RawMessage `json:"data" validate:"required"`
+// }
 
-type FriendsIds struct {
-	Ids []string `json:"ids" validate:"required,min=1"`
-}
+// type UserId struct {
+// 	ID string `json:"id" validate:"required,min=1"`
+// }
 
-type SendPayloadMessage struct {
-	RecevierIDs []string `json:"ids" validate:"required,min=1"`
-	Payload     []byte   `json:"payload" validate:"required"`
-}
+// type FriendsIds struct {
+// 	Ids []string `json:"friendsIds" validate:"required,min=1"`
+// }
 
-type ReplyMessage struct {
-	Sender  string `json:"sender-id" validate:"required,min=1"`
-	Payload []byte `json:"payload" validate:"required"`
-}
+// type SendPayloadMessage struct {
+// 	RecevierIDs []uuid.UUID `json:"ids" validate:"required,min=1"`
+// 	Payload     []byte      `json:"payload" validate:"required"`
+// }
 
-type ResponseMessage struct {
-	Code      *uint           `json:"code"`
-	MessageId string          `json:"msgId"`
-	Payload   json.RawMessage `json:"payload"`
-}
+// type ReplyMessage struct {
+// 	Sender  uuid.UUID `json:"sender-id" validate:"required,min=1"`
+// 	Payload []byte    `json:"payload" validate:"required"`
+// }
 
-type CredsMessage struct {
-	Username string `json:"username" validate:"required,min=1"`
-	Password string `json:"password" validate:"required,min=1"`
-}
+// type ResponseMessage struct {
+// 	Code      *uint           `json:"code"`
+// 	MessageId string          `json:"msgId"`
+// 	Payload   json.RawMessage `json:"payload"`
+// }
+
+// type CredsMessage struct {
+// 	Username string `json:"username" validate:"required,min=1"`
+// 	Password string `json:"password" validate:"required,min=1"`
+// }
 
 func ToRegisterConnectMessage(data json.RawMessage) (*UserId, error) {
 	op := "protocols.ToRegisterConnectMessage"
@@ -105,7 +117,7 @@ func ToReplyMessage(data []byte) (*ReplyMessage, error) {
 	return replyMsg, nil
 }
 
-func NewReplyMessage(senderId string, pyaload json.RawMessage) ([]byte, error) {
+func NewReplyMessage(senderId uuid.UUID, pyaload json.RawMessage) ([]byte, error) {
 	op := "protocols.NewReplyMessage"
 	rm := ReplyMessage{
 		Sender:  senderId,
