@@ -245,14 +245,12 @@ func (sc *signalingClient) AddInSession(ctx context.Context, id uuid.UUID) error
 	userId := UserId{
 		ID: id,
 	}
-	log.Info("userId", logger.Attr("id", userId))
+
 	data, err := json.Marshal(userId)
 	if err != nil {
 		log.Error("failed to marshal user id", logger.Err(err))
 		return errs.NewAppError(op, err)
 	}
-
-	log.Info("userIdData", logger.Attr("data", string(data)))
 
 	if err := sc.sendCommand(ctx, ADD_IN_SESSION, data); err != nil {
 		log.Error("failed to send command", logger.Err(err))
