@@ -36,8 +36,8 @@ const (
 type (
 	Message = alohsignalling.Message
 	UserId  = alohsignalling.UserId
-	//SendPayloadMessage = alohsignalling.SendPayloadMessage
-	//ReplyMessage       = alohsignalling.ReplyMessage
+	SendPayloadMessage = alohsignalling.SendPayloadMessage
+	ReplyMessage       = alohsignalling.ReplyMessage
 	ResponseMessage    = alohsignalling.ResponseMessage
 	CredsMessage       = alohsignalling.CredsMessage
 	FetchFriendsOnline = alohsignalling.FetchFriendsOnline
@@ -57,15 +57,15 @@ type (
 // 	Ids []string `json:"friendsIds" validate:"required,min=1"`
 // }
 
-type SendPayloadMessage struct {
-	RecevierIDs []uuid.UUID `json:"ids" validate:"required,min=1"`
-	Payload     []byte      `json:"payload" validate:"required"`
-}
+// type SendPayloadMessage struct {
+// 	RecevierIDs []uuid.UUID `json:"ids" validate:"required,min=1"`
+// 	Payload     []byte      `json:"payload" validate:"required"`
+// }
 
-type ReplyMessage struct {
-	Sender  uuid.UUID `json:"sender-id" validate:"required,min=1"`
-	Payload []byte    `json:"payload" validate:"required"`
-}
+// type ReplyMessage struct {
+// 	Sender  uuid.UUID `json:"sender-id" validate:"required,min=1"`
+// 	Payload []byte    `json:"payload" validate:"required"`
+// }
 
 // type ResponseMessage struct {
 // 	Code      *uint           `json:"code"`
