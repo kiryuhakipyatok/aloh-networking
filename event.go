@@ -10,4 +10,7 @@ const (
 	GENERAL      = networking.GENERAL
 )
 
-type Event = networking.Event
+type (
+	Event       = networking.Event
+	GeneralData = networking.GeneralData
+)
