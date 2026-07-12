@@ -7,6 +7,7 @@ const (
 	MIC_MUTE     = networking.MIC_MUTE
 	HARD_DENOISE = networking.HARD_DENOISE
 	SOFT_DENOISE = networking.SOFT_DENOISE
+	GENERAL      = networking.GENERAL
 )
 
 type Event = networking.Event

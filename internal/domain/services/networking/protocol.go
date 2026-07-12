@@ -5,6 +5,7 @@ const (
 	MIC_MUTE
 	HARD_DENOISE
 	SOFT_DENOISE
+	GENERAL
 )
 
 type Event struct {
