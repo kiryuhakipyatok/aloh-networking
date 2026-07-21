@@ -173,6 +173,8 @@ func (ns *networkingServ) Connect(ctx context.Context, rid uuid.UUID) error {
 		return errs.NewAppError(op, err)
 	}
 
+	log.Info("receivers session", logger.Attr("sessions", resultReceiversSessions))
+
 	if len(resultReceiversSessions) > 0 {
 		for _, ss := range resultReceiversSessions {
 			if ss != ns.id {
