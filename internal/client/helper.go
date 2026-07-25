@@ -258,7 +258,7 @@ func (sc *signalingClient) receiveSDP(ctx context.Context) error {
 func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data []byte) ([]byte, error) {
 	op := "signalingClient.getPayload"
 	if !sc.isOnline.Load() {
-		return nil, errs.ErrOfflineBase
+		return nil, errs.ErrOffline(op)
 	}
 	msgId := uuid.New()
 	respChan := make(chan ResponseMessage, 1)
@@ -279,7 +279,7 @@ func (sc *signalingClient) getPayload(ctx context.Context, msgType uint8, data [
 func (sc *signalingClient) sendPayload(ctx context.Context, ids []uuid.UUID, data []byte) error {
 	op := "signalingClient.sendPayload"
 	if !sc.isOnline.Load() {
-		return errs.ErrOfflineBase
+		return  errs.ErrOffline(op)
 	}
 	sendMsg := SendPayloadMessage{
 		RecevierIDs: ids,
@@ -314,7 +314,7 @@ func (sc *signalingClient) clearPendingResponses() {
 func (sc *signalingClient) sendCommand(ctx context.Context, msgType uint8, data []byte) error {
 	op := "signalingClient.sendCommand"
 	if !sc.isOnline.Load() {
-		return errs.ErrOfflineBase
+		return  errs.ErrOffline(op)
 	}
 	msgId := uuid.New()
 	respChan := make(chan ResponseMessage, 1)

@@ -86,9 +86,12 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		}
 
-		if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
-			log.Error("failed to delete from session", logger.Err(err), userIdLog)
+		if isLeaveInitiator {
+			if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
+				log.Error("failed to delete from session", logger.Err(err), userIdLog)
+			}
 		}
+
 		if !isLeaveInitiator {
 			disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
 			if ok {
