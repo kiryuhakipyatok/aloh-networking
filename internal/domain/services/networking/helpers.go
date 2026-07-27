@@ -60,13 +60,13 @@ func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
 		}
 	case VOICE:
 		select {
-		case ns.voiceChan <- Packet{id: id, data: data}:
+		case ns.voiceChan <- Packet{id: id, data: payload}:
 		default:
 		}
 
 	case VIDEO:
 		select {
-		case ns.videoChan <- Packet{id: id, data: data}:
+		case ns.videoChan <- Packet{id: id, data: payload}:
 		default:
 		}
 	default:
