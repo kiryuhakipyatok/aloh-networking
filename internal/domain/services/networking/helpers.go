@@ -26,32 +26,33 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) startPacketProcessors() {
+func (ns *networkingServ) startPacketProcessors(session *models.Session) {
 	go func() {
-		for p := range ns.voiceChan {
+		for p := range session.VoiceChan {
 			voiceHand, ok := ns.onVoiceHandler.Load().(dataHandler)
 			if ok {
-				voiceHand(p.id, p.data)
+				voiceHand(session.UserID, p)
 			}
 		}
 	}()
 
 	go func() {
-		for p := range ns.videoChan {
+		for p := range session.VideoChan {
 			videoHand, ok := ns.onVideoHandler.Load().(dataHandler)
 			if ok {
-				videoHand(p.id, p.data)
+				videoHand(session.UserID, p)
 			}
 		}
 	}()
 }
 
-func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
+func (ns *networkingServ) processData(session *models.Session, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
 	msgType := data[0]
 	payload := make([]byte, len(data)-1)
 	copy(payload, data[1:])
+	id := session.UserID
 	switch msgType {
 	case CHAT:
 		chatHdlr, ok := ns.onChatHandler.Load().(dataHandler)
@@ -60,13 +61,13 @@ func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
 		}
 	case VOICE:
 		select {
-		case ns.voiceChan <- Packet{id: id, data: payload}:
+		case session.VoiceChan <- payload:
 		default:
 		}
 
 	case VIDEO:
 		select {
-		case ns.videoChan <- Packet{id: id, data: payload}:
+		case session.VideoChan <- payload:
 		default:
 		}
 	default:
@@ -102,7 +103,8 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
-
+		close(session.VoiceChan)
+		close(session.VideoChan)
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		}
@@ -196,6 +198,8 @@ func (ns *networkingServ) createSession(ctx context.Context, rid uuid.UUID, isIn
 		CredsChan:   make(chan struct{}, 1),
 		Closing:     sync.Once{},
 		ReadyChan:   make(chan struct{}, 1),
+		VoiceChan:   make(chan []byte, 100),
+		VideoChan:   make(chan []byte, 100),
 	}
 
 	localFrag, localPwd, err := agent.GetLocalUserCredentials()
@@ -591,6 +595,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	}()
 	go ns.proccessEventStream(session)
 	go ns.receiveDatagrams(session)
+	go ns.startPacketProcessors(session)
 	ns.receiveStreams(session)
 }
 
@@ -710,7 +715,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 			}
 			msgLenLog := logger.Attr("msgLen", len(data[1:]))
 			log.Info("new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
-			ns.processData(session.UserID, data)
+			ns.processData(session, data)
 		}(stream)
 
 	}
@@ -749,7 +754,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
 		sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
-		ns.processData(session.UserID, data)
+		ns.processData(session, data)
 
 	}
 }

@@ -64,11 +64,6 @@ type NetworkingServ interface {
 	FetchOnlineFriends(ctx context.Context, friends []uuid.UUID) (map[uuid.UUID][]string, error)
 }
 
-type Packet struct {
-	id   uuid.UUID
-	data []byte
-}
-
 type networkingServ struct {
 	id                   uuid.UUID
 	signalingClient      client.SignalingClient
@@ -81,10 +76,6 @@ type networkingServ struct {
 	tlsConf              *tls.Config
 	sendDatagramLogCount atomic.Uint32
 	fetchLogCount        atomic.Uint32
-
-	voiceChan chan Packet
-	videoChan chan Packet
-
 	handlers
 }
 
@@ -95,8 +86,6 @@ type NewNetworkingSetup struct {
 	L           *logger.Logger
 	SR          repository.SessionRepository
 	ReceiveSDPs chan client.ReplyMessage
-	VoiceChan   chan Packet
-	VideoChan   chan Packet
 }
 
 func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) NetworkingServ {
@@ -112,8 +101,6 @@ func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) Networking
 		logger:          setup.L,
 		closeCtx:        closeCtx,
 		tlsConf:         tlsConf,
-		voiceChan: setup.VoiceChan,
-		videoChan: setup.VideoChan,
 	}
 
 	ns.sendDatagramLogCount.Store(0)
@@ -124,8 +111,6 @@ func NewNetworkingServ(ctx context.Context, setup NewNetworkingSetup) Networking
 			cancel()
 		}
 	}()
-
-	go ns.startPacketProcessors()
 
 	return ns
 }
