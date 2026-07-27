@@ -4,6 +4,7 @@ app:
   env: "local"
   receiveSDPSize: 100
   sendSDPSize: 100
+  packetSize: 100
   logPath: ""
 
 signaling:
