@@ -591,8 +591,7 @@ func (ns *networkingServ) proccessEventStream(session *models.Session) {
 			return
 		}
 		if ok {
-			eventHndlr(session.UserID, event)
-			log.Info("event proccessed successfully", idsLog...)
+			go eventHndlr(session.UserID, event)
 		}
 	}
 }
@@ -669,26 +668,29 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 			return
 		}
 
-		secureStream, err := e2ee.NewSecureStream(stream, session.Key)
-		if err != nil {
-			log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
-			continue
-		}
+		go func(stream *quic.ReceiveStream) {
+			defer stream.CancelRead(0)
+			secureStream, err := e2ee.NewSecureStream(stream, session.Key)
+			if err != nil {
+				log.Error("failed to create secure stream", logger.Err(err), userIdLog, receiverIdLog)
+				return
+			}
 
-		data, err := secureStream.Receive()
-		if err != nil {
-			log.Error("failed to read data from secure stream", logger.Err(err), userIdLog, receiverIdLog)
-			continue
-		}
+			data, err := secureStream.Receive()
+			if err != nil {
+				log.Error("failed to read data from secure stream", logger.Err(err), userIdLog, receiverIdLog)
+				return
+			}
 
-		if len(data) < 1 {
-			log.Error("received empty data", userIdLog, receiverIdLog)
-			continue
-		}
-		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		log.Info("new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
-		stream.CancelRead(0)
-		ns.processData(session.UserID, data)
+			if len(data) < 1 {
+				log.Error("received empty data", userIdLog, receiverIdLog)
+				return
+			}
+			msgLenLog := logger.Attr("msgLen", len(data[1:]))
+			log.Info("new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
+			ns.processData(session.UserID, data)
+		}(stream)
+
 	}
 }
 
@@ -712,18 +714,23 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 			ns.disconnectSession(session, false)
 			return
 		}
-		data, err := e2ee.DecipherDatagram(datagram, session.Key)
-		if err != nil {
-			log.Error("failed to decipher datagram", logger.Err(err))
-			continue
-		}
-		if len(data) < 1 {
-			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
-			continue
-		}
+		payload := make([]byte, len(datagram))
+		copy(payload, datagram)
+		go func(datagram []byte) {
+			data, err := e2ee.DecipherDatagram(datagram, session.Key)
+			if err != nil {
+				log.Error("failed to decipher datagram", logger.Err(err))
+				return
+			}
+			if len(data) < 1 {
+				sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
+				return
+			}
 
-		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
-		ns.processData(session.UserID, data)
+			msgLenLog := logger.Attr("msgLen", len(data[1:]))
+			sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
+			ns.processData(session.UserID, data)
+		}(payload)
+
 	}
 }
