@@ -21,5 +21,7 @@ type Session struct {
 	CredsChan       chan struct{}
 	Closing         sync.Once
 	ReadyChan       chan struct{}
+	VoiceChan       chan []byte
+	VideoChan       chan []byte
 	Key             []byte
 }
