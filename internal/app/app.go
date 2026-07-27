@@ -167,6 +167,9 @@ func Init(userID uuid.UUID, logPath string) (networking.NetworkingServ, context.
 	sendSDP := make(chan client.Message, cfg.App.SendSDPSize)
 	receiveSDP := make(chan client.ReplyMessage, cfg.App.ReceiveSDPSize)
 
+	voiceChan := make(chan networking.Packet, cfg.App.PacketSize)
+	videoChan := make(chan networking.Packet, cfg.App.PacketSize)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	signalingClient, err := client.NewSignalingClient(ctx, log, userID, sendSDP, receiveSDP, cfg.Signaling)
@@ -183,6 +186,8 @@ func Init(userID uuid.UUID, logPath string) (networking.NetworkingServ, context.
 		Cfg:         cfg.Networking,
 		SR:          sessionRepo,
 		ReceiveSDPs: receiveSDP,
+		VoiceChan:   voiceChan,
+		VideoChan:   videoChan,
 	}
 
 	networkingService := networking.NewNetworkingServ(ctx, networkingSetup)

@@ -25,6 +25,7 @@ type App struct {
 	Version        string `mapstructure:"version"`
 	Env            string `mapstructure:"env"`
 	ReceiveSDPSize int    `mapstructure:"receiveSDPSize"`
+	PacketSize     int    `mapstructure:"packetSize"`
 	SendSDPSize    int    `mapstructure:"sendSDPSize"`
 }
 
