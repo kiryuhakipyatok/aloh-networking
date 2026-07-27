@@ -26,6 +26,26 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
+func (ns *networkingServ) startPacketProcessors() {
+	go func() {
+		for p := range ns.voiceChan {
+			voiceHand, ok := ns.onVoiceHandler.Load().(dataHandler)
+			if ok {
+				voiceHand(p.id, p.data)
+			}
+		}
+	}()
+
+	go func() {
+		for p := range ns.videoChan {
+			videoHand, ok := ns.onVideoHandler.Load().(dataHandler)
+			if ok {
+				videoHand(p.id, p.data)
+			}
+		}
+	}()
+}
+
 func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
 	op := "networkingServ.processData"
 	log := ns.logger.AddOp(op)
@@ -39,14 +59,15 @@ func (ns *networkingServ) processData(id uuid.UUID, data []byte) {
 			chatHdlr(id, payload)
 		}
 	case VOICE:
-		voiceHdlr, ok := ns.onVoiceHandler.Load().(dataHandler)
-		if ok {
-			voiceHdlr(id, payload)
+		select {
+		case ns.voiceChan <- Packet{id: id, data: data}:
+		default:
 		}
+
 	case VIDEO:
-		videoHdlr, ok := ns.onVideoHandler.Load().(dataHandler)
-		if ok {
-			videoHdlr(id, payload)
+		select {
+		case ns.videoChan <- Packet{id: id, data: data}:
+		default:
 		}
 	default:
 		err := errors.New("invalid type")
@@ -715,23 +736,20 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 			ns.disconnectSession(session, false)
 			return
 		}
-		payload := make([]byte, len(datagram))
-		copy(payload, datagram)
-		go func(datagram []byte) {
-			data, err := e2ee.DecipherDatagram(datagram, session.Key)
-			if err != nil {
-				log.Error("failed to decipher datagram", logger.Err(err))
-				return
-			}
-			if len(data) < 1 {
-				sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
-				return
-			}
 
-			msgLenLog := logger.Attr("msgLen", len(data[1:]))
-			sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
-			ns.processData(session.UserID, data)
-		}(payload)
+		data, err := e2ee.DecipherDatagram(datagram, session.Key)
+		if err != nil {
+			log.Error("failed to decipher datagram", logger.Err(err))
+			return
+		}
+		if len(data) < 1 {
+			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
+			return
+		}
+
+		msgLenLog := logger.Attr("msgLen", len(data[1:]))
+		sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
+		ns.processData(session.UserID, data)
 
 	}
 }
