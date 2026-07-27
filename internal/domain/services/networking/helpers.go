@@ -745,11 +745,11 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 		data, err := e2ee.DecipherDatagram(datagram, session.Key)
 		if err != nil {
 			log.Error("failed to decipher datagram", logger.Err(err))
-			return
+			continue
 		}
 		if len(data) < 1 {
 			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
-			return
+			continue
 		}
 
 		msgLenLog := logger.Attr("msgLen", len(data[1:]))
