@@ -268,6 +268,12 @@ func Run() {
 		}
 	})
 
+	networkingHandler.OnVideo(func(id uuid.UUID, data []byte) {
+		if err := networkingHandler.SendVideo(data); err != nil {
+			fmt.Println(err)
+		}
+	})
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
