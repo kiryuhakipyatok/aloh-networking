@@ -26,7 +26,7 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func (ns *networkingServ) startPacketProcessors(session *models.Session) {
+func (ns *networkingServ) startDatagramsProcessors(session *models.Session) {
 	go func() {
 		for p := range session.VoiceChan {
 			voiceHand, ok := ns.onVoiceHandler.Load().(dataHandler)
@@ -37,10 +37,19 @@ func (ns *networkingServ) startPacketProcessors(session *models.Session) {
 	}()
 
 	go func() {
-		for p := range session.VideoChan {
-			videoHand, ok := ns.onVideoHandler.Load().(dataHandler)
+		for p := range session.WebcamChan {
+			webcamHand, ok := ns.onWebcamHandler.Load().(dataHandler)
 			if ok {
-				videoHand(session.UserID, p)
+				webcamHand(session.UserID, p)
+			}
+		}
+	}()
+
+	go func() {
+		for p := range session.ScreenChan {
+			screenHand, ok := ns.onScreenHandler.Load().(dataHandler)
+			if ok {
+				screenHand(session.UserID, p)
 			}
 		}
 	}()
@@ -65,14 +74,18 @@ func (ns *networkingServ) processData(session *models.Session, data []byte) {
 		default:
 		}
 
-	case VIDEO:
+	case WEBCAM:
 		select {
-		case session.VideoChan <- payload:
+		case session.WebcamChan <- payload:
+		default:
+		}
+	case SCREEN:
+		select {
+		case session.ScreenChan <- payload:
 		default:
 		}
 	default:
-		err := errors.New("invalid type")
-		log.Error("failed to process data", logger.Err(err), logger.Attr("msgType", msgType))
+		log.Error("failed to process data", logger.Err(errs.ErrInvalidType), logger.Attr("msgType", msgType))
 	}
 }
 
@@ -104,7 +117,8 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			}
 		}
 		close(session.VoiceChan)
-		close(session.VideoChan)
+		close(session.WebcamChan)
+		close(session.ScreenChan)
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		}
@@ -199,7 +213,8 @@ func (ns *networkingServ) createSession(ctx context.Context, rid uuid.UUID, isIn
 		Closing:     sync.Once{},
 		ReadyChan:   make(chan struct{}, 1),
 		VoiceChan:   make(chan []byte, 100),
-		VideoChan:   make(chan []byte, 100),
+		WebcamChan:  make(chan []byte, 100),
+		ScreenChan:  make(chan []byte, 100),
 	}
 
 	localFrag, localPwd, err := agent.GetLocalUserCredentials()
@@ -595,7 +610,7 @@ func (ns *networkingServ) handleConnection(session *models.Session) {
 	}()
 	go ns.proccessEventStream(session)
 	go ns.receiveDatagrams(session)
-	go ns.startPacketProcessors(session)
+	go ns.startDatagramsProcessors(session)
 	ns.receiveStreams(session)
 }
 

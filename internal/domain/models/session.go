@@ -22,6 +22,7 @@ type Session struct {
 	Closing         sync.Once
 	ReadyChan       chan struct{}
 	VoiceChan       chan []byte
-	VideoChan       chan []byte
+	WebcamChan       chan []byte
+	ScreenChan       chan []byte
 	Key             []byte
 }

@@ -14,11 +14,23 @@ func (n *Netwoking) RegisterOnChat(cb func(id uuid.UUID, data []byte)) {
 	})
 }
 
-func (n *Netwoking) RegisterOnVideo(cb func(id uuid.UUID, data []byte)) {
+func (n *Netwoking) RegisterOnWebcam(cb func(id uuid.UUID, data []byte)) {
 	if cb == nil {
 		return
 	}
-	n.Handler.OnVideo(func(id uuid.UUID, data []byte) {
+	n.Handler.OnWebcam(func(id uuid.UUID, data []byte) {
+		if len(data) == 0 {
+			return
+		}
+		cb(id, data)
+	})
+}
+
+func (n *Netwoking) RegisterOnScreen(cb func(id uuid.UUID, data []byte)) {
+	if cb == nil {
+		return
+	}
+	n.Handler.OnScreen(func(id uuid.UUID, data []byte) {
 		if len(data) == 0 {
 			return
 		}

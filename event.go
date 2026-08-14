@@ -12,7 +12,7 @@ const (
 	MIC_MUTE     = networking.MIC_MUTE
 	HARD_DENOISE = networking.HARD_DENOISE
 	SOFT_DENOISE = networking.SOFT_DENOISE
-	WEBCAM       = networking.WEBCAM
+	WEBCAM_STATE = networking.WEBCAM_STATE
 	GENERAL      = networking.GENERAL
 )
 
@@ -80,7 +80,7 @@ func SoftDenoiseEvent(state bool) (Event, error) {
 func WebcamEvent(state bool) (Event, error) {
 	t := time.Now().UTC().Unix()
 	e := Event{
-		Typee:     WEBCAM,
+		Typee:     WEBCAM_STATE,
 		Timestamp: t,
 	}
 	data, err := json.Marshal(state)

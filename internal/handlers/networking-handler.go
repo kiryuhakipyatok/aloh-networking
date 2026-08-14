@@ -167,11 +167,21 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	return nil
 }
 
-func (nh *NetworkingHandler) SendVideo(data []byte) error {
+func (nh *NetworkingHandler) SendWebcam(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVideoTimeout)
 	defer cancel()
-	data = utils.SetFirstByte(networking.VIDEO, data)
-	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
+	data = utils.SetFirstByte(networking.WEBCAM, data)
+	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
+		return errs.ProcessError(err)
+	}
+	return nil
+}
+
+func (nh *NetworkingHandler) SendScreen(data []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVideoTimeout)
+	defer cancel()
+	data = utils.SetFirstByte(networking.SCREEN, data)
+	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
 		return errs.ProcessError(err)
 	}
 	return nil
@@ -181,8 +191,12 @@ func (nh *NetworkingHandler) OnChat(f func(id uuid.UUID, data []byte)) {
 	nh.NetworkingServ.SaveChatHandler(f)
 }
 
-func (nh *NetworkingHandler) OnVideo(f func(id uuid.UUID, data []byte)) {
-	nh.NetworkingServ.SaveVideoHandler(f)
+func (nh *NetworkingHandler) OnWebcam(f func(id uuid.UUID, data []byte)) {
+	nh.NetworkingServ.SaveWebcamHandler(f)
+}
+
+func (nh *NetworkingHandler) OnScreen(f func(id uuid.UUID, data []byte)) {
+	nh.NetworkingServ.SaveScreenHandler(f)
 }
 
 func (nh *NetworkingHandler) OnVoice(f func(id uuid.UUID, data []byte)) {
