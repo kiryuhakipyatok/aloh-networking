@@ -268,8 +268,14 @@ func Run() {
 		}
 	})
 
-	networkingHandler.OnVideo(func(id uuid.UUID, data []byte) {
-		if err := networkingHandler.SendVideo(data); err != nil {
+	networkingHandler.OnWebcam(func(id uuid.UUID, data []byte) {
+		if err := networkingHandler.SendWebcam(data); err != nil {
+			fmt.Println(err)
+		}
+	})
+
+	networkingHandler.OnScreen(func(id uuid.UUID, data []byte) {
+		if err := networkingHandler.SendScreen(data); err != nil {
 			fmt.Println(err)
 		}
 	})

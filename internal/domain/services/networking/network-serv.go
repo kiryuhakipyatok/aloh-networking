@@ -37,7 +37,8 @@ const (
 const (
 	CHAT = iota
 	VOICE
-	VIDEO
+	WEBCAM
+	SCREEN
 )
 
 const (
@@ -55,7 +56,8 @@ type NetworkingServ interface {
 	SendDatagram(ctx context.Context, data []byte) error
 	SaveChatHandler(h dataHandler)
 	SaveVoiceHandler(h dataHandler)
-	SaveVideoHandler(h dataHandler)
+	SaveWebcamHandler(h dataHandler)
+	SaveScreenHandler(h dataHandler)
 	SavePeerConnectedHandler(h connectionHandler)
 	SavePeerDisconnectedHandler(h connectionHandler)
 	SaveEventHandler(h eventHandler)

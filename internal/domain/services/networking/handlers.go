@@ -13,7 +13,8 @@ type eventHandler func(id uuid.UUID, data Event)
 type handlers struct {
 	onChatHandler             atomic.Value
 	onVoiceHandler            atomic.Value
-	onVideoHandler            atomic.Value
+	onWebcamHandler           atomic.Value
+	onScreenHandler           atomic.Value
 	onPeerConnectedHandler    atomic.Value
 	onPeerDisconnectedHandler atomic.Value
 	onEventHandler            atomic.Value
@@ -28,8 +29,12 @@ func (ns *networkingServ) SaveVoiceHandler(h dataHandler) {
 	ns.onVoiceHandler.Store(h)
 }
 
-func (ns *networkingServ) SaveVideoHandler(h dataHandler) {
-	ns.onVideoHandler.Store(h)
+func (ns *networkingServ) SaveWebcamHandler(h dataHandler) {
+	ns.onWebcamHandler.Store(h)
+}
+
+func (ns *networkingServ) SaveScreenHandler(h dataHandler) {
+	ns.onScreenHandler.Store(h)
 }
 
 func (ns *networkingServ) SavePeerConnectedHandler(h connectionHandler) {
