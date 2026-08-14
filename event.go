@@ -13,6 +13,7 @@ const (
 	HARD_DENOISE = networking.HARD_DENOISE
 	SOFT_DENOISE = networking.SOFT_DENOISE
 	WEBCAM_STATE = networking.WEBCAM_STATE
+	SCREEN_STATE = networking.SCREEN_STATE
 	GENERAL      = networking.GENERAL
 )
 
@@ -81,6 +82,20 @@ func WebcamEvent(state bool) (Event, error) {
 	t := time.Now().UTC().Unix()
 	e := Event{
 		Typee:     WEBCAM_STATE,
+		Timestamp: t,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return e, err
+	}
+	e.Data = data
+	return e, nil
+}
+
+func ScreenEvent(state bool) (Event, error) {
+	t := time.Now().UTC().Unix()
+	e := Event{
+		Typee:     SCREEN_STATE,
 		Timestamp: t,
 	}
 	data, err := json.Marshal(state)
