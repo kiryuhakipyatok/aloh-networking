@@ -77,6 +77,7 @@ type networkingServ struct {
 	closeCtx             context.Context
 	tlsConf              *tls.Config
 	sendDatagramLogCount atomic.Uint32
+	sendStreamLogCount   atomic.Uint32
 	fetchLogCount        atomic.Uint32
 	handlers
 }
@@ -304,13 +305,16 @@ func (ns *networkingServ) SendInEventStream(ctx context.Context, e Event) error 
 }
 
 func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
+	ns.sendStreamLogCount.Add(1)
 	op := "networkingServ.SendMessage"
 	log := ns.logger.AddOp(op)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
 	userIdLog := logger.Attr("userId", ns.id)
 	payload := data[1:]
 	msgLenLog := logger.Attr("msgLen", len(payload))
 	sendMsgLog := logger.NewLogData(userIdLog, msgLenLog)
-	log.Info("message sending", sendMsgLog...)
+	logCount := ns.sendStreamLogCount.Load()
+	sparseLog.Info(logCount, "message sending", sendMsgLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
@@ -358,7 +362,7 @@ func (ns *networkingServ) SendInStream(ctx context.Context, data []byte) error {
 							log.Error("failed to close secure stream", logger.Err(err), recIdLog, userIdLog, msgLenLog)
 							return
 						}
-						log.Info("message sent", recIdLog, userIdLog, msgLenLog)
+						sparseLog.Info(logCount, "message sent", recIdLog, userIdLog, msgLenLog)
 					}
 				}(s)
 			default:
@@ -379,15 +383,16 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 	userIdLog := logger.Attr("userId", ns.id)
 	dgLenLog := logger.Attr("msgLen", len(data[1:]))
 	sendDatagramLog := logger.NewLogData(userIdLog, dgLenLog)
-	sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sending", sendDatagramLog...)
+	logCount := ns.sendDatagramLogCount.Load()
+	sparseLog.Info(logCount, "datagram sending", sendDatagramLog...)
 
 	sessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		sparseLog.Error(ns.sendDatagramLogCount.Load(), "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
+		sparseLog.Error(logCount, "failed to fetch sessions", logger.Err(err), dgLenLog, userIdLog)
 		return errs.NewAppError(op, err)
 	}
 	if len(sessions) == 0 {
-		sparseLog.Info(ns.sendDatagramLogCount.Load(), "zero sessions", sendDatagramLog...)
+		log.Info("zero sessions", sendDatagramLog...)
 		return errs.ErrNotFound(op)
 	}
 	for _, s := range sessions {
@@ -407,7 +412,7 @@ func (ns *networkingServ) SendDatagram(ctx context.Context, data []byte) error {
 						log.Error("failed to send datagram", logger.Err(err), userIdLog, recIdLog, dgLenLog)
 						return
 					}
-					sparseLog.Info(ns.sendDatagramLogCount.Load(), "datagram sent", sendDatagramLog...)
+					sparseLog.Info(logCount, "datagram sent", sendDatagramLog...)
 
 				}(s)
 			default:
