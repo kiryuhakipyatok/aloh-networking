@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -123,6 +124,8 @@ func (ns *networkingServ) Connect(ctx context.Context, rid uuid.UUID) error {
 	log := ns.logger.AddOp(op)
 	log.Info("connecting...")
 	userIdLog := logger.Attr("userId", ns.id)
+	receiverIdLog := logger.Attr("receiverId", rid)
+	conLog := logger.NewLogData(userIdLog, receiverIdLog)
 	mergeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
@@ -136,20 +139,27 @@ func (ns *networkingServ) Connect(ctx context.Context, rid uuid.UUID) error {
 
 	if rid == ns.id {
 		errMsg := "cannot connect to himself"
-		log.Error(errMsg, userIdLog)
+		log.Error(errMsg, conLog)
 		return errors.New(errMsg)
 	}
 
 	curSessions, err := ns.sessionRepo.Fetch(ctx)
 	if err != nil {
-		log.Error("failed to fetch current sessions", userIdLog)
+		log.Error("failed to fetch current sessions", conLog)
 		return errs.NewAppError(op, err)
+	}
+
+	if slices.ContainsFunc(curSessions, func(s *models.Session) bool {
+		return s.UserID == rid
+	}) {
+		log.Error("already in connection", conLog)
+		return nil
 	}
 
 	if len(curSessions) > 0 {
 		log.Info("reconnecting...")
 		if err = ns.Disconnect(); err != nil {
-			log.Error("failed to disconnect", logger.Err(err), userIdLog)
+			log.Error("failed to disconnect", logger.Err(err), conLog)
 			return errs.NewAppError(op, err)
 		}
 	}
