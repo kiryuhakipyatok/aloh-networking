@@ -64,6 +64,7 @@ func (ns *networkingServ) processData(session *models.Session, data []byte) {
 	id := session.UserID
 	switch msgType {
 	case CHAT:
+		log.Info("new chat message", logger.Attr("len", len(data)))
 		chatHdlr, ok := ns.onChatHandler.Load().(dataHandler)
 		if ok {
 			chatHdlr(id, payload)
@@ -695,10 +696,13 @@ func (ns *networkingServ) initEventStream(ctx context.Context, session *models.S
 func (ns *networkingServ) receiveStreams(session *models.Session) {
 	op := "networkingServ.receiveStreams"
 	log := ns.logger.AddOp(op)
+	sparseLog := log.Sparse(ns.cfg.DatagramLogTargetCount)
 	userIdLog := logger.Attr("userId", ns.id)
 	receiverIdLog := logger.Attr("receiverid", session.UserID)
+	var logCount uint32 = 0
 	log.Info("streams receiving...", receiverIdLog, userIdLog)
 	for {
+		logCount++
 		stream, err := session.Conn.AcceptUniStream(ns.closeCtx)
 		if err != nil {
 			if cerr := utils.CheckErr(ns.closeCtx, err); cerr != nil {
@@ -728,7 +732,7 @@ func (ns *networkingServ) receiveStreams(session *models.Session) {
 				return
 			}
 			msgLenLog := logger.Attr("msgLen", len(data[1:]))
-			log.Info("new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
+			sparseLog.Info(logCount, "new msg from stream received", userIdLog, receiverIdLog, msgLenLog)
 			ns.processData(session, data)
 		}(stream)
 
@@ -743,7 +747,7 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 	receiverIdLog := logger.Attr("receiverId", session.UserID)
 	idsLog := logger.NewLogData(userIdLog, receiverIdLog)
 	var logCount uint32 = 0
-	sparseLog.Info(logCount, "datagram receiving...", idsLog...)
+	log.Info("datagram receiving...", idsLog...)
 
 	for {
 		logCount++
@@ -756,19 +760,22 @@ func (ns *networkingServ) receiveDatagrams(session *models.Session) {
 			return
 		}
 
-		data, err := e2ee.DecipherDatagram(datagram, session.Key)
-		if err != nil {
-			log.Error("failed to decipher datagram", logger.Err(err))
-			continue
-		}
-		if len(data) < 1 {
-			sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
-			continue
-		}
+		go func(datagram []byte) {
+			data, err := e2ee.DecipherDatagram(datagram, session.Key)
+			if err != nil {
+				log.Error("failed to decipher datagram", logger.Err(err))
+				return
+			}
+			if len(data) < 1 {
+				sparseLog.Error(logCount, "received empty data", userIdLog, receiverIdLog)
+				return
+			}
 
-		msgLenLog := logger.Attr("msgLen", len(data[1:]))
-		sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
-		ns.processData(session, data)
+			msgLenLog := logger.Attr("msgLen", len(data[1:]))
+			sparseLog.Info(logCount, "new datagram received", userIdLog, receiverIdLog, msgLenLog)
+			ns.processData(session, data)
+
+		}(datagram)
 
 	}
 }

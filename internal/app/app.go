@@ -124,6 +124,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	"github.com/google/uuid"
@@ -267,14 +268,36 @@ func Run() {
 			fmt.Println(err)
 		}
 	})
+	webcEvevent := sync.OnceFunc(func() {
+		e, err := handlers.WebcamEvent(true)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if err = networkingHandler.SendEvent(e); err != nil {
+			fmt.Println(err)
+		}
+	})
 
+	scrEvevent := sync.OnceFunc(func() {
+		e, err := handlers.ScreenEvent(true)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if err = networkingHandler.SendEvent(e); err != nil {
+			fmt.Println(err)
+		}
+	})
 	networkingHandler.OnWebcam(func(id uuid.UUID, data []byte) {
+		webcEvevent()
 		if err := networkingHandler.SendWebcam(data); err != nil {
 			fmt.Println(err)
 		}
 	})
 
 	networkingHandler.OnScreen(func(id uuid.UUID, data []byte) {
+		scrEvevent()
 		if err := networkingHandler.SendScreen(data); err != nil {
 			fmt.Println(err)
 		}

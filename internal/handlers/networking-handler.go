@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -108,6 +109,34 @@ func (nh *NetworkingHandler) Start() {
 	}
 }
 
+func WebcamEvent(state bool) (networking.Event, error) {
+	t := time.Now().UTC().Unix()
+	e := networking.Event{
+		Typee:     networking.WEBCAM_STATE,
+		Timestamp: t,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return e, err
+	}
+	e.Data = data
+	return e, nil
+}
+
+func ScreenEvent(state bool) (networking.Event, error) {
+	t := time.Now().UTC().Unix()
+	e := networking.Event{
+		Typee:     networking.SCREEN_STATE,
+		Timestamp: t,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return e, err
+	}
+	e.Data = data
+	return e, nil
+}
+
 func (nh *NetworkingHandler) Connect(receiverId uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.ConnectTimeout)
 	defer cancel()
@@ -175,7 +204,7 @@ func (nh *NetworkingHandler) SendWebcam(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVideoTimeout)
 	defer cancel()
 	data = utils.SetFirstByte(networking.WEBCAM, data)
-	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
+	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
 		return errs.ProcessError(err)
 	}
 	return nil
