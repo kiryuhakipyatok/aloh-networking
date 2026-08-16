@@ -152,7 +152,7 @@ func (ns *networkingServ) Connect(ctx context.Context, rid uuid.UUID) error {
 	if slices.ContainsFunc(curSessions, func(s *models.Session) bool {
 		return s.UserID == rid
 	}) {
-		log.Error("already in connection", conLog)
+		log.Info("already in connection", conLog)
 		return nil
 	}
 
