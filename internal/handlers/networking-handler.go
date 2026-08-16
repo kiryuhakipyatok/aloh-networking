@@ -171,7 +171,7 @@ func (nh *NetworkingHandler) SendWebcam(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVideoTimeout)
 	defer cancel()
 	data = utils.SetFirstByte(networking.WEBCAM, data)
-	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
+	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
 		return errs.ProcessError(err)
 	}
 	return nil
