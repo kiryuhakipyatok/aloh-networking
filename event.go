@@ -8,13 +8,15 @@ import (
 )
 
 const (
-	FULL_MUTE    = networking.FULL_MUTE
-	MIC_MUTE     = networking.MIC_MUTE
-	HARD_DENOISE = networking.HARD_DENOISE
-	SOFT_DENOISE = networking.SOFT_DENOISE
-	WEBCAM_STATE = networking.WEBCAM_STATE
-	SCREEN_STATE = networking.SCREEN_STATE
-	GENERAL      = networking.GENERAL
+	FULL_MUTE        = networking.FULL_MUTE
+	MIC_MUTE         = networking.MIC_MUTE
+	HARD_DENOISE     = networking.HARD_DENOISE
+	SOFT_DENOISE     = networking.SOFT_DENOISE
+	WEBCAM_STATE     = networking.WEBCAM_STATE
+	SCREEN_STATE     = networking.SCREEN_STATE
+	WEBCAM_KEY_FRAME = networking.WEBCAM_KEY_FRAME
+	SCREEN_KEY_FRAME = networking.SCREEN_KEY_FRAME
+	GENERAL          = networking.GENERAL
 )
 
 type (
@@ -96,6 +98,34 @@ func ScreenEvent(state bool) (Event, error) {
 	t := time.Now().UTC().Unix()
 	e := Event{
 		Typee:     SCREEN_STATE,
+		Timestamp: t,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return e, err
+	}
+	e.Data = data
+	return e, nil
+}
+
+func WebcamKeyFrameEvent(state bool) (Event, error) {
+	t := time.Now().UTC().Unix()
+	e := Event{
+		Typee:     WEBCAM_KEY_FRAME,
+		Timestamp: t,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return e, err
+	}
+	e.Data = data
+	return e, nil
+}
+
+func ScreenKeyFrameEvent(state bool) (Event, error) {
+	t := time.Now().UTC().Unix()
+	e := Event{
+		Typee:     SCREEN_KEY_FRAME,
 		Timestamp: t,
 	}
 	data, err := json.Marshal(state)
