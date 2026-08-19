@@ -108,31 +108,21 @@ func ScreenEvent(state bool) (Event, error) {
 	return e, nil
 }
 
-func WebcamKeyFrameEvent(state bool) (Event, error) {
+func WebcamKeyFrameEvent() (Event, error) {
 	t := time.Now().UTC().Unix()
 	e := Event{
 		Typee:     WEBCAM_KEY_FRAME,
 		Timestamp: t,
 	}
-	data, err := json.Marshal(state)
-	if err != nil {
-		return e, err
-	}
-	e.Data = data
 	return e, nil
 }
 
-func ScreenKeyFrameEvent(state bool) (Event, error) {
+func ScreenKeyFrameEvent() (Event, error) {
 	t := time.Now().UTC().Unix()
 	e := Event{
 		Typee:     SCREEN_KEY_FRAME,
 		Timestamp: t,
 	}
-	data, err := json.Marshal(state)
-	if err != nil {
-		return e, err
-	}
-	e.Data = data
 	return e, nil
 }
 
