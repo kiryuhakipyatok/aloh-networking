@@ -130,12 +130,12 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			}
 		}
 
-		if !isLeaveInitiator {
+		//if !isLeaveInitiator {
 			disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
 			if ok {
 				disconnHdlr(session.UserID)
 			}
-		}
+		//}
 
 		log.Info("user disconnected", userIdLog)
 
