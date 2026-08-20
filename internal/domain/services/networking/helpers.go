@@ -99,12 +99,13 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		if session.EventStream != nil {
 			if err := session.EventStream.Close(); err != nil {
 				log.Error("failed to close event stream", logger.Err(err), userIdLog)
-			} else {
-				select {
-				case <-session.EventStream.Context().Done():
-				case <-ns.closeCtx.Done():
-				}
 			}
+			// } else {
+			// 	select {
+			// 	case <-session.EventStream.Context().Done():
+			// 	case <-ns.closeCtx.Done():
+			// 	}
+			// }
 		}
 
 		if session.Conn != nil {
@@ -130,12 +131,12 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			}
 		}
 
-		//if !isLeaveInitiator {
+		if !isLeaveInitiator {
 			disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
 			if ok {
 				disconnHdlr(session.UserID)
 			}
-		//}
+		}
 
 		log.Info("user disconnected", userIdLog)
 
