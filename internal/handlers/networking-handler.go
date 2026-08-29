@@ -161,7 +161,10 @@ func (nh *NetworkingHandler) SendVoice(data []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nh.Cfg.SendVoiceTimeout)
 	defer cancel()
 	data = utils.SetFirstByte(networking.VOICE, data)
-	if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
+	// if err := nh.NetworkingServ.SendDatagram(ctx, data); err != nil {
+	// 	return errs.ProcessError(err)
+	// }
+	if err := nh.NetworkingServ.SendInStream(ctx, data); err != nil {
 		return errs.ProcessError(err)
 	}
 	return nil
