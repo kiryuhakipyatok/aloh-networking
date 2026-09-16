@@ -7,7 +7,7 @@ app:
   logPath: ""
 
 signaling:
-  address: "164.90.163.153"
+  address: "91.98.160.221"
   port: "1234"
   handshakeTimeout: 10s
   maxIdleTimeout: 40s
@@ -23,9 +23,9 @@ networking:
   maxIdleTimeout: 40s
   keepAlivePeriodTimeout: 10s
   nextProtos: ["aloh-networking"]
-  stunHost: "164.90.163.153"
+  stunHost: "91.98.160.221"
   stunPort: "3478"
-  turnHost: "164.90.163.153"
+  turnHost: "91.98.160.221"
   turnPort: "3478"
   newSDPTimeout: 2s
   sendInStreamTimeout: 5s
