@@ -375,6 +375,7 @@ func (ns *networkingServ) receiveConnects() error {
 					log.Error("failed to unmarshal candidate", logger.Err(err), senderIdLog)
 					return
 				}
+				log.Debug("candidate type", logger.Attr("type", c.Type().String()))
 				if err := session.Agent.AddRemoteCandidate(c); err != nil {
 					log.Error("failed to add remote candidate", logger.Err(err), senderIdLog)
 					return
