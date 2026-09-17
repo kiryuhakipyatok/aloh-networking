@@ -107,37 +107,39 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			// 	}
 			// }
 		}
-
+		log.Info("event stream closed")
 		if session.Conn != nil {
 			if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
+		log.Info("session conn closed")
 		if session.Agent != nil {
 			if err := session.Agent.GracefulClose(); err != nil {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
+		log.Info("agent closed")
 		close(session.VoiceChan)
 		close(session.WebcamChan)
 		close(session.ScreenChan)
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		}
-
+		log.Info("session deleted from repo")
 		if isLeaveInitiator {
 			if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 				log.Error("failed to delete from session", logger.Err(err), userIdLog)
 			}
 		}
-
+		log.Info("deleted from signaling")
 		if !isLeaveInitiator {
 			disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
 			if ok {
 				disconnHdlr(session.UserID)
 			}
 		}
-
+		log.Info("discon handler")
 		log.Info("user disconnected", userIdLog)
 
 	})
