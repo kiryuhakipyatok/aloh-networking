@@ -115,7 +115,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		}
 		log.Info("session conn closed")
 		if session.Agent != nil {
-			if err := session.Agent.GracefulClose(); err != nil {
+			if err := session.Agent.Close(); err != nil {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
