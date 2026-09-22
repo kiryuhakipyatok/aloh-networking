@@ -23,8 +23,8 @@ import (
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
-	"github.com/pion/ice/v2"
-	"github.com/pion/stun"
+	"github.com/pion/ice/v4"
+	"github.com/pion/stun/v3"
 	"github.com/quic-go/quic-go"
 )
 
@@ -117,7 +117,7 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 		}
 		log.Info("session conn closed")
 		if session.Agent != nil {
-			if err := session.Agent.Close(); err != nil {
+			if err := session.Agent.GracefulClose(); err != nil {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
@@ -170,7 +170,7 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 		}
 	}
 	if session.Agent != nil {
-		if err := session.Agent.Close(); err != nil {
+		if err := session.Agent.GracefulClose(); err != nil {
 			log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 		}
 	}
@@ -205,20 +205,25 @@ func (ns *networkingServ) createSession(ctx context.Context, rid uuid.UUID, isIn
 		return nil, errs.NewAppError(op, err)
 	}
 
-	agent, err := ice.NewAgent(&ice.AgentConfig{
-		Urls: []*stun.URI{
-			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
-		},
-		NetworkTypes: []ice.NetworkType{
-			ice.NetworkTypeUDP4,
-			ice.NetworkTypeUDP6,
-			ice.NetworkTypeTCP4,
-			ice.NetworkTypeTCP6,
-		},
-		DisconnectedTimeout: &ns.cfg.DisconnectedTimeout,
-	})
+	networkTypes := []ice.NetworkType{
+		ice.NetworkTypeUDP4,
+		ice.NetworkTypeUDP6,
+		ice.NetworkTypeTCP4,
+		ice.NetworkTypeTCP6,
+	}
+
+	stunURI := []*stun.URI{
+		{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
+		{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeUDP},
+		{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
+	}
+
+	agent, err := ice.NewAgentWithOptions(
+		ice.WithNetworkTypes(networkTypes),
+		ice.WithDisconnectedTimeout(ns.cfg.DisconnectedTimeout),
+		ice.WithUrls(stunURI),
+	)
+
 	if err != nil {
 		log.Error("failed to create agent", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
