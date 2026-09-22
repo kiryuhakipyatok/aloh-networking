@@ -24,7 +24,7 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
 	"github.com/pion/ice/v4"
-	"github.com/pion/stun/v3"
+	"github.com/pion/stun/v4"
 	"github.com/quic-go/quic-go"
 )
 
