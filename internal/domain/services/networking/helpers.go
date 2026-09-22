@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +23,8 @@ import (
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
 
-	"github.com/pion/ice/v2"
-	"github.com/pion/stun"
+	"github.com/pion/ice/v4"
+	"github.com/pion/stun/v4"
 	"github.com/quic-go/quic-go"
 )
 
@@ -107,37 +109,40 @@ func (ns *networkingServ) disconnectSession(session *models.Session, isLeaveInit
 			// 	}
 			// }
 		}
-
+		log.Info("event stream closed")
 		if session.Conn != nil {
 			if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 				log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 			}
 		}
+		log.Info("session conn closed")
 		if session.Agent != nil {
 			if err := session.Agent.GracefulClose(); err != nil {
 				log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 			}
 		}
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 1)
+		log.Info("agent closed")
 		close(session.VoiceChan)
 		close(session.WebcamChan)
 		close(session.ScreenChan)
 		if err := ns.sessionRepo.Delete(context.Background(), session.UserID, session); err != nil {
 			log.Error("failed to delete session", logger.Err(err), userIdLog)
 		}
-
+		log.Info("session deleted from repo")
 		if isLeaveInitiator {
 			if err := ns.signalingClient.DeleteFromSession(context.Background(), session.UserID); err != nil {
 				log.Error("failed to delete from session", logger.Err(err), userIdLog)
 			}
 		}
-
+		log.Info("deleted from signaling")
 		if !isLeaveInitiator {
 			disconnHdlr, ok := ns.onPeerDisconnectedHandler.Load().(connectionHandler)
 			if ok {
 				disconnHdlr(session.UserID)
 			}
 		}
-
+		log.Info("discon handler")
 		log.Info("user disconnected", userIdLog)
 
 	})
@@ -148,6 +153,17 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", session.UserID)
 	log.Info("session reseting...", userIdLog)
+	if session.EventStream != nil {
+		if err := session.EventStream.Close(); err != nil {
+			log.Error("failed to close event stream", logger.Err(err), userIdLog)
+		}
+		// } else {
+		// 	select {
+		// 	case <-session.EventStream.Context().Done():
+		// 	case <-ns.closeCtx.Done():
+		// 	}
+		// }
+	}
 	if session.Conn != nil {
 		if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 			log.Error("failed to close quic conn", logger.Err(err), userIdLog)
@@ -188,20 +204,26 @@ func (ns *networkingServ) createSession(ctx context.Context, rid uuid.UUID, isIn
 		log.Error("failed to fetch creds", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)
 	}
-	agent, err := ice.NewAgent(&ice.AgentConfig{
-		Urls: []*stun.URI{
-			{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeUDP},
-			{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
-		},
-		NetworkTypes: []ice.NetworkType{
-			ice.NetworkTypeUDP4,
-			ice.NetworkTypeUDP6,
-			ice.NetworkTypeTCP4,
-			ice.NetworkTypeTCP6,
-		},
-		DisconnectedTimeout: &ns.cfg.DisconnectedTimeout,
-	})
+
+	networkTypes := []ice.NetworkType{
+		ice.NetworkTypeUDP4,
+		ice.NetworkTypeUDP6,
+		ice.NetworkTypeTCP4,
+		ice.NetworkTypeTCP6,
+	}
+
+	stunURI := []*stun.URI{
+		{Scheme: stun.SchemeTypeSTUN, Host: ns.cfg.STUNHost, Port: ns.cfg.STUNPort, Proto: stun.ProtoTypeUDP},
+		{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeUDP},
+		{Scheme: stun.SchemeTypeTURN, Host: ns.cfg.TURNHost, Port: ns.cfg.TURNPort, Username: username, Password: password, Proto: stun.ProtoTypeTCP},
+	}
+
+	agent, err := ice.NewAgentWithOptions(
+		ice.WithNetworkTypes(networkTypes),
+		ice.WithDisconnectedTimeout(ns.cfg.DisconnectedTimeout),
+		ice.WithUrls(stunURI),
+	)
+
 	if err != nil {
 		log.Error("failed to create agent", logger.Err(err), ridLog, userIdLog)
 		return nil, errs.NewAppError(op, err)

@@ -19,7 +19,7 @@ import (
 	"github.com/kiryuhakipyatok/aloh-networking/internal/utils"
 	errs "github.com/kiryuhakipyatok/aloh-networking/pkg/errs/app"
 	"github.com/kiryuhakipyatok/aloh-networking/pkg/logger"
-	"github.com/pion/ice/v2"
+	"github.com/pion/ice/v4"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
