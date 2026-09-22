@@ -153,13 +153,24 @@ func (ns *networkingServ) resetSession(session *models.Session) {
 	log := ns.logger.AddOp(op)
 	userIdLog := logger.Attr("userId", session.UserID)
 	log.Info("session reseting...", userIdLog)
+	if session.EventStream != nil {
+		if err := session.EventStream.Close(); err != nil {
+			log.Error("failed to close event stream", logger.Err(err), userIdLog)
+		}
+		// } else {
+		// 	select {
+		// 	case <-session.EventStream.Context().Done():
+		// 	case <-ns.closeCtx.Done():
+		// 	}
+		// }
+	}
 	if session.Conn != nil {
 		if err := session.Conn.CloseWithError(0, "disconnected"); err != nil {
 			log.Error("failed to close quic conn", logger.Err(err), userIdLog)
 		}
 	}
 	if session.Agent != nil {
-		if err := session.Agent.GracefulClose(); err != nil {
+		if err := session.Agent.Close(); err != nil {
 			log.Error("failed to close ice agent", logger.Err(err), userIdLog)
 		}
 	}
